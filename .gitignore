@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.vite/
+reference/
+contract/src/managed/
+ui/public/keys/
+ui/public/zkir/
+cli/deployment*.json
+*.log
+.DS_Store

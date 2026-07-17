@@ -1,0 +1,41 @@
+{
+  "name": "@moonray/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "stack:up": "docker compose -f standalone.yml up -d --wait",
+    "stack:down": "docker compose -f standalone.yml down -v",
+    "deploy:local": "tsx src/deploy.ts local",
+    "e2e:local": "tsx src/e2e.ts local",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@moonray/api": "*",
+    "@moonray/contract": "*",
+    "@moonray/engine": "*",
+    "@midnight-ntwrk/compact-runtime": "^0.16.0",
+    "@midnight-ntwrk/ledger-v8": "8.1.0",
+    "@midnight-ntwrk/midnight-js-contracts": "4.1.1",
+    "@midnight-ntwrk/midnight-js-http-client-proof-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-network-id": "4.1.1",
+    "@midnight-ntwrk/midnight-js-node-zk-config-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-types": "4.1.1",
+    "@midnight-ntwrk/midnight-js-utils": "4.1.1",
+    "@midnight-ntwrk/wallet-sdk-address-format": "^3.1.2",
+    "@midnight-ntwrk/wallet-sdk-dust-wallet": "^3.0.0",
+    "@midnight-ntwrk/wallet-sdk-facade": "^3.0.0",
+    "@midnight-ntwrk/wallet-sdk-hd": "^3.0.0",
+    "@midnight-ntwrk/wallet-sdk-shielded": "^2.1.0",
+    "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "^2.1.0",
+    "rxjs": "^7.8.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.2",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.19.2",
+    "typescript": "~5.9.3"
+  }
+}

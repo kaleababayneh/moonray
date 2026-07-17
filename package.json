@@ -1,0 +1,36 @@
+{
+  "name": "moonray",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "contract",
+    "engine",
+    "api",
+    "cli",
+    "ui"
+  ],
+  "overrides": {
+    "@midnight-ntwrk/ledger-v8": "8.1.0",
+    "@midnight-ntwrk/compact-js": "2.5.1",
+    "@midnight-ntwrk/midnight-js-types": "4.1.1",
+    "@midnight-ntwrk/midnight-js-contracts": "4.1.1",
+    "@midnight-ntwrk/midnight-js-utils": "4.1.1",
+    "@midnight-ntwrk/midnight-js-network-id": "4.1.1",
+    "@midnight-ntwrk/midnight-js-fetch-zk-config-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-node-zk-config-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-http-client-proof-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.1.1"
+  },
+  "scripts": {
+    "compact": "npm run compact --workspace contract",
+    "build:contract": "npm run compact --workspace contract && npm run build --workspace contract",
+    "build:engine": "npm run build --workspace engine",
+    "build": "npm run build:contract && npm run build:engine && npm run build --workspace api && npm run build --workspace ui",
+    "test": "npm run test --workspace engine && npm run test --workspace contract",
+    "dev": "npm run dev --workspace ui",
+    "deploy:local": "npm run deploy:local --workspace cli",
+    "e2e:local": "npm run e2e:local --workspace cli",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}
