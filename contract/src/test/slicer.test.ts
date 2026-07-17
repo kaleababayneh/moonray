@@ -188,10 +188,11 @@ describe('slicer contract (simulator)', () => {
   });
 
   describe('cheat suite — every tampered witness must throw', () => {
-    const submitTampered = (mutate: (b: StagedRun & { expectedScore: number }) => StagedRun) => {
+    type MutableRun = { -readonly [K in keyof StagedRun]: StagedRun[K] };
+    const submitTampered = (mutate: (b: MutableRun) => StagedRun) => {
       const { bundle } = playFullClear(SEED, 313n);
       sim.addUser('cheater');
-      sim.as('cheater').stageRun(mutate(structuredClone(bundle)));
+      sim.as('cheater').stageRun(mutate(structuredClone(bundle) as MutableRun));
       sim.submitRun(TID);
     };
 
@@ -297,10 +298,10 @@ describe('slicer contract (simulator)', () => {
     it('non-canonical padding rejected', () => {
       expect(() =>
         submitTampered((b) => {
-          const p = b.pieces[0];
-          const n = Number(p.vertCount);
-          if (n < 11) p.verts[10] = { x: 9n, y: 9n };
-          else p.pieces; // 11-vert piece: nothing to tamper; force a different lie
+          // tamper the padding slot of a piece that has one
+          const target = b.pieces.find((p, i) => i < Number(b.pieceCount) && Number(p.vertCount) < 11);
+          if (!target) throw new Error('piece not padded canonically (no padded piece to tamper)');
+          target.verts[10] = { x: 9n, y: 9n };
           return b;
         }),
       ).toThrow(/piece not padded canonically/);
