@@ -230,6 +230,9 @@ body {
 
 .board-wrap {
   position: relative;
+  max-width: min(100%, calc(100vh - 240px));
+  min-width: min(100%, 420px);
+  margin: 0 auto;
   border-radius: var(--radius);
   overflow: hidden;
   border: 1px solid var(--border);
