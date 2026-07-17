@@ -64,3 +64,21 @@ Bounds frozen as designed: 8-vert octagon board, ≤3 cuts, ≤8 pieces × 10 ve
 Generated artifact facts: only impure circuits get keys/zkir; exported pure
 circuits (`verifyRunPure`, `buildLevelFrom`, hashes) compile to plain TS in
 `pureCircuits` — the UI preflight and engine goldens call the exact circuit code.
+
+## Phase 6–7 — API + CLI + local e2e (2026-07-17)
+
+E2E on the local stack (node 0.22.5 / indexer-standalone 4.0.2 / proof-server
+8.0.3), REAL proofs via the local proof server — passed first run:
+
+| Step | wall clock |
+|---|---|
+| deploy (constructor proof + tx) | 18.5 s |
+| createTournament | 17.4 s |
+| **submitRun** (the big circuit: proof + balance + submit) | **30.7 s / 24.1 s** |
+| revealScore | 20.5 / 18.7 s |
+| claimBadge | 17.4 s |
+
+Flow verified on-chain: two players seal under distinct nullifiers; replay
+rejected by the node ("already played"); wrong-level witnesses blocked by
+preflight ("edge start off source line"); ranking [45, 0] after reveals;
+Silver badge claimed with the score still sealed on the badge path.
