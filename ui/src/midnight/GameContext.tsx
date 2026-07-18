@@ -55,6 +55,7 @@ export interface GameContextValue {
   networkId: string;
   contractAddress: string | null;
   walletName: string | null;
+  walletAddress: string | null;
   connected: boolean;
   connecting: boolean;
   connectError: string | null;
@@ -88,6 +89,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
   const networkConfig = UI_NETWORKS[networkKey];
 
   const [walletName, setWalletName] = useState<string | null>(null);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [ledger, setLedger] = useState<LedgerView | null>(null);
@@ -174,6 +176,10 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
       providersRef.current = providers;
       await join(providers);
       setWalletName(session.walletName);
+      session.api
+        .getUnshieldedAddress()
+        .then((a) => setWalletAddress(a.unshieldedAddress))
+        .catch(() => undefined);
     } catch (err) {
       setConnectError(err instanceof Error ? err.message : String(err));
       throw err;
@@ -197,6 +203,10 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         providersRef.current = providers;
         await join(providers);
         setWalletName(session.walletName);
+        session.api
+          .getUnshieldedAddress()
+          .then((a) => setWalletAddress(a.unshieldedAddress))
+          .catch(() => undefined);
       })
       .catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -229,6 +239,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     providersRef.current = null;
     sessionRef.current = null;
     setWalletName(null);
+    setWalletAddress(null);
   }, []);
 
   const submitRun = useCallback(
@@ -288,6 +299,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     networkId: networkConfig.networkId,
     contractAddress: deploymentAddress,
     walletName,
+    walletAddress,
     connected: walletName !== null,
     connecting,
     connectError,

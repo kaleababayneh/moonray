@@ -10,8 +10,13 @@ import { makeMoonSprite } from '../game/render'
 import { useGame } from '../midnight/GameContext'
 import type { TournamentView } from '@moonray/api'
 
-/** Hourly tids are hours-since-epoch — display the last 4 digits. */
-export const opId = (tid: bigint) => `OP-${(tid % 10000n).toString().padStart(4, '0')}`
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+
+/** Daily tids are days-since-epoch — display the field's date, e.g. JUL-18. */
+export const opId = (tid: bigint) => {
+  const d = new Date(Number(tid) * 86_400_000)
+  return `${MONTHS[d.getUTCMonth()]}-${String(d.getUTCDate()).padStart(2, '0')}`
+}
 
 function HeroMoon({ size = 300 }: { size?: number }) {
   const ref = useRef<HTMLCanvasElement>(null)
@@ -140,12 +145,12 @@ export function TitleScreen({
         ? `${opId(tournament.tid)} · PROOFS CLOSED`
         : myRun
           ? `${opId(tournament.tid)} · PROVEN ${myRun.score} PTS`
-          : `${opId(tournament.tid)} · A FRESH FIELD EVERY HOUR`
+          : `${opId(tournament.tid)} · A FRESH FIELD EVERY DAY`
 
-  // the countdown under the wordmark: current field's close, else next hour
+  // the countdown under the wordmark: current field's close, else next UTC day
   const timerSecs = open
     ? Math.max(0, tournament.submitUntil - nowSec)
-    : 3600 - (nowSec % 3600)
+    : 86_400 - (nowSec % 86_400)
 
   return (
     <section className="title-screen">
@@ -190,7 +195,7 @@ export function TitleScreen({
           onClick={onDaily}
           disabled={!tournament || !open}
         >
-          <span className="menu-label">Hourly operation</span>
+          <span className="menu-label">Daily operation</span>
           <span className="menu-sub">{dailySub}</span>
         </button>
         <button className="menu-item rise" style={{ '--d': '370ms' } as React.CSSProperties} onClick={onExpedition}>

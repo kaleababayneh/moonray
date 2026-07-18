@@ -2036,3 +2036,19 @@ input.callsign-input:focus {
   outline: none;
   border-color: var(--gold);
 }
+
+/* /deploy passphrase gate */
+.deploy-gate {
+  align-items: flex-start;
+}
+input.deploy-pass {
+  width: 220px;
+  text-transform: none;
+  letter-spacing: 0.3em;
+}
+.deploy-wrong {
+  color: var(--rose);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+}

@@ -97,7 +97,7 @@ export function Manual({ onBack }: { onBack: () => void }) {
         <p>
           Two survey plates share the field. Cuts are straight lines that cross everything in their
           path — one good trajectory can slice both plates at once. Every player in the world gets
-          the same field each hour; only zero-knowledge keeps it fair.
+          the same field each day; only zero-knowledge keeps it fair.
         </p>
       </div>
 

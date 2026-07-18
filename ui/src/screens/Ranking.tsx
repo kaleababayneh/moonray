@@ -9,6 +9,7 @@ import type { TournamentView } from '@moonray/api'
 import { TIERS } from '@moonray/engine'
 import { Btn, fmtClock, Icon } from '../components/Hud'
 import { MoonrayMark } from '../components/MoonrayMark'
+import { opId } from '../components/TitleScreen'
 import { Identicon, shortNul } from '../components/Identicon'
 import { LS_CALLSIGN, LS_DISPLAY_NAMES } from '../config'
 import { useGame } from '../midnight/GameContext'
@@ -112,7 +113,7 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
           >
             {tournaments.map((x) => (
               <option key={x.tid.toString()} value={x.tid.toString()}>
-                OP-{x.tid.toString().padStart(3, '0')}
+                {opId(x.tid)}
               </option>
             ))}
           </select>
@@ -145,6 +146,11 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
         )}
       </div>
 
+      {g.connected && !callsign && (
+        <p className="archive-note rise" style={{ '--d': '130ms' } as React.CSSProperties}>
+          PICK A CALLSIGN ABOVE — IT IS SHOWN WITH YOUR WALLET BESIDE YOUR ENTRIES.
+        </p>
+      )}
       {msg && (
         <p className="archive-note rise" style={{ '--d': '140ms' } as React.CSSProperties}>
           {msg}
@@ -178,7 +184,11 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
                       ) : (
                         <em>{name ?? 'anonymous operator'}</em>
                       )}
-                      <small>{shortNul(r.nullifier).toUpperCase()}</small>
+                      <small>
+                        {mine && g.walletAddress
+                          ? `${g.walletAddress.slice(0, 18)}…${g.walletAddress.slice(-6)}`.toUpperCase()
+                          : shortNul(r.nullifier).toUpperCase()}
+                      </small>
                     </div>
                     <b className="ledger-score">{r.score}</b>
                   </div>
@@ -212,7 +222,7 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
                         !g.connected
                           ? 'Link a wallet first'
                           : !myRun
-                            ? 'Prove a run in the hourly first'
+                            ? 'Prove a run in the daily first'
                             : !have
                               ? `Your proven score (${myRun.score}) is below this honour`
                               : undefined
@@ -239,7 +249,11 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
                     <Identicon value={b.nullifier} size={30} />
                     <div className="ledger-id">
                       <em>{mine ? callsign || 'you' : 'anonymous operator'}</em>
-                      <small>{shortNul(b.nullifier).toUpperCase()}</small>
+                      <small>
+                        {mine && g.walletAddress
+                          ? `${g.walletAddress.slice(0, 18)}…${g.walletAddress.slice(-6)}`.toUpperCase()
+                          : shortNul(b.nullifier).toUpperCase()}
+                      </small>
                     </div>
                     <b className="ledger-score">{tier?.name.toUpperCase()}</b>
                   </div>

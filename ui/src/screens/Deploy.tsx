@@ -9,11 +9,23 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { fetchLedger, MoonraySlicer, pickUsableSeed, type SlicerProviders } from '@moonray/api'
+import { opId } from '../components/TitleScreen'
 import { LS_DEPLOYMENT, UI_NETWORKS, type Deployment } from '../config'
 import { connectWallet } from '../midnight/wallet'
 import { buildBrowserProviders, loadOrCreateSecretKey } from '../midnight/providers'
 
-const HOUR = 3600
+const DAY = 86_400
+
+// Gate: SHA-256 of the station passphrase (the phrase itself is not in the
+// bundle). Client-side only — it hides the console, it is not a vault; real
+// admin power stays with the admin secret key in the deployer's browser.
+const GATE_HASH = '946426eae4f53ec14a860f9edaee11f42abe71108d54ccbdc07f7c73a35b79a6'
+const GATE_SESSION_KEY = 'moonray_station_gate_v1'
+
+const sha256Hex = async (text: string): Promise<string> => {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
+}
 
 type StepState = 'run' | 'ok' | 'err'
 interface Step {
@@ -33,6 +45,9 @@ const loadDeployment = (): Deployment | null => {
 
 export function DeployPage() {
   const config = UI_NETWORKS.preprod
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(GATE_SESSION_KEY) === '1')
+  const [pass, setPass] = useState('')
+  const [passWrong, setPassWrong] = useState(false)
   const [deployment, setDeployment] = useState<Deployment | null>(loadDeployment)
   const [steps, setSteps] = useState<Step[]>([])
   const [busy, setBusy] = useState(false)
@@ -57,10 +72,10 @@ export function DeployPage() {
   const openCurrentOp = useCallback(
     async (game: MoonraySlicer, providers: SlicerProviders, address: string) => {
       const nowSec = Math.floor(Date.now() / 1000)
-      const tid = BigInt(Math.floor(nowSec / HOUR))
-      const closeAt = (Math.floor(nowSec / HOUR) + 1) * HOUR
+      const tid = BigInt(Math.floor(nowSec / DAY))
+      const closeAt = (Math.floor(nowSec / DAY) + 1) * DAY
 
-      push(`checking OP-${tid % 10000n}…`)
+      push(`checking ${opId(tid)}…`)
       const view = await fetchLedger(providers, address).catch(() => null)
       if (view?.tournaments.some((t) => t.tid === tid)) {
         mark('ok', 'already open')
@@ -68,12 +83,12 @@ export function DeployPage() {
       }
       mark('ok', 'not found — opening')
 
-      push(`opening OP-${tid % 10000n} (proof + wallet approval)…`)
+      push(`opening ${opId(tid)} (proof + wallet approval)…`)
       const tx = await game.createTournament(
         tid,
         pickUsableSeed(),
         new Date(closeAt * 1000),
-        new Date((closeAt + 25 * HOUR) * 1000),
+        new Date((closeAt + DAY) * 1000),
       )
       mark('ok', `tx ${tx.txHash.slice(0, 14)}…`)
     },
@@ -135,6 +150,50 @@ export function DeployPage() {
     gameRef.current = null
   }
 
+  const unlock = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if ((await sha256Hex(pass)) === GATE_HASH) {
+      sessionStorage.setItem(GATE_SESSION_KEY, '1')
+      setUnlocked(true)
+    } else {
+      setPassWrong(true)
+      setPass('')
+    }
+  }
+
+  if (!unlocked) {
+    return (
+      <main className="deploy-root">
+        <h1 className="deploy-word">MOONRAY</h1>
+        <p className="deploy-sub">RESTRICTED STATION</p>
+        <form className="deploy-panel deploy-gate" onSubmit={unlock}>
+          <p className="deploy-note">This console is for the station operator.</p>
+          <div className="deploy-actions">
+            <input
+              className="callsign-input deploy-pass"
+              type="password"
+              placeholder="PASSPHRASE"
+              value={pass}
+              onChange={(e) => {
+                setPass(e.target.value)
+                setPassWrong(false)
+              }}
+              autoFocus
+              aria-label="Station passphrase"
+            />
+            <button className="deploy-btn" type="submit" disabled={!pass}>
+              ENTER
+            </button>
+          </div>
+          {passWrong && <p className="deploy-note deploy-wrong">WRONG PASSPHRASE.</p>}
+        </form>
+        <a className="deploy-back" href="/">
+          ← BACK TO THE FIELD
+        </a>
+      </main>
+    )
+  }
+
   const json = deployment ? JSON.stringify(deployment, null, 2) : ''
   const copy = () => {
     void navigator.clipboard.writeText(json).then(() => {
@@ -161,7 +220,7 @@ export function DeployPage() {
                 {copied ? 'COPIED' : 'COPY DEPLOYMENT JSON'}
               </button>
               <button className="deploy-btn" onClick={openOp} disabled={busy}>
-                OPEN CURRENT HOUR OP
+                OPEN TODAY&apos;S OP
               </button>
               <button className="deploy-btn deploy-btn-ghost" onClick={forget} disabled={busy}>
                 FORGET (THIS BROWSER)
@@ -177,8 +236,7 @@ export function DeployPage() {
             <p className="deploy-note">
               Deploys a fresh Moonray Slicer contract to <b>{config.networkId}</b> through your
               connected wallet — it proves the constructor, pays the fees, and this browser&apos;s
-              key becomes the admin. Afterwards the current hour&apos;s operation is opened
-              automatically.
+              key becomes the admin. Afterwards today&apos;s operation is opened automatically.
             </p>
             <div className="deploy-actions">
               <button className="deploy-btn" onClick={deploy} disabled={busy}>
