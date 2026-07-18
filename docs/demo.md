@@ -1,13 +1,14 @@
 # Demo script (≤ 3 minutes)
 
 Setup beforehand: local stack running, `npm run deploy:local` done (tournament #1 open),
-`npx tsx cli/src/demo-seed.ts local 2` done (tournament #2 already revealed: ranking 45/0 +
-a Silver badge), UI at http://localhost:5173.
+`npx tsx cli/src/demo-seed.ts local 2` done (tournament #2 already revealed: searched-run
+ranking + a Bronze badge), UI at http://localhost:5173.
 
-1. **Practice cut (30s).** Open the app — it's already playable, no wallet. Drag two cuts,
-   watch pieces separate and moonlets light up gold as they're isolated; the score updates
-   live. Press `Z` to undo, cut again. *"Play is instant and local — nothing has touched a
-   chain yet."*
+1. **Practice cut (30s).** Open the app — it's already playable, no wallet. Two irregular
+   survey plates, one blade: drag a cut through both, watch pieces separate, moonlets glow
+   gold when isolated — and a piece holding a single moonlet DISSOLVES and collects it.
+   Press `Z` to undo, cut again. *"Play is instant and local — nothing has touched a chain
+   yet."*
 
 2. **The daily (30s).** Click *Daily tournament is live →*. Same game, but the board came from
    the on-chain seed and the countdown is real. Point at the tournament bar. *"Everyone in the
@@ -20,14 +21,14 @@ a Silver badge), UI at http://localhost:5173.
    real proofs, ~25s each.)
 
 4. **Cheating doesn't compile into a proof (15s).** In the e2e output, point at the tampered
-   submission: witnesses from a different board fail `seed limbs mismatch` / the node rejects a
+   submission: witnesses from a different field fail `seed limbs mismatch` / the node rejects a
    replayed nullifier with `already played`. *"The verifier is consensus, not a server."*
 
 5. **Reveal & leaderboard (30s).** Switch to tournament #2 on the Leaderboard screen: two
-   anonymous identicons, ranking [45, 0]. *"Scores appeared only after the window closed —
-   nothing to snipe during play."* Name your row locally.
+   anonymous identicons with the revealed ranking. *"Scores appeared only after the window
+   closed — nothing to snipe during play."* Name your row locally.
 
-6. **The money shot: badges (30s).** Badges screen: an anonymous entry holds **🥈 Silver —
+6. **The money shot: badges (30s).** Badges screen: an anonymous entry holds **🥉 Bronze —
    "score ≥ 40"** — and its exact score is *never* on-chain. Same sealed entry as the
    leaderboard; the player chose which face to show. *"Reveal is optional. Proof isn't."*
 
