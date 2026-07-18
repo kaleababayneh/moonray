@@ -70,12 +70,10 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
     }
   }, [])
 
-  /** Publish my nickname for every op I have run material for (incl. this one). */
-  const publishAll = (name: string) => {
+  /** Publish a name for one operation's entry — each reveal names itself freely. */
+  const publishFor = (tid: bigint, name: string) => {
     if (!g.connected) return
-    const tids = new Set(Object.keys(g.myRuns()))
-    if (t) tids.add(t.tid.toString())
-    for (const k of tids) void publishName(g.myNullifier(BigInt(k)), name, g.walletAddress ?? '')
+    void publishName(g.myNullifier(tid), name, g.walletAddress ?? '')
   }
 
   const reveal = async () => {
@@ -84,7 +82,8 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
     setMsg(null)
     try {
       const { score } = await g.revealScore(t.tid)
-      if (nickname) publishAll(nickname)
+      const name = draft.trim() || nickname
+      if (name) publishFor(t.tid, name)
       setMsg(`REVEALED ${score} PTS — THE RANKING UPDATES AS THE INDEXER CATCHES UP.`)
     } catch (err) {
       setMsg(`REVEAL FAILED: ${err instanceof Error ? err.message : String(err)}`)
@@ -98,10 +97,10 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
     setNickname(v)
     if (v) localStorage.setItem(LS_NICKNAME, v)
     else localStorage.removeItem(LS_NICKNAME)
-    publishAll(v)
+    if (t) publishFor(t.tid, v)
     setMsg(
       v
-        ? `NICKNAME "${v.toUpperCase()}" REGISTERED — EVERYONE SEES IT BESIDE YOUR ENTRIES.`
+        ? `NICKNAME "${v.toUpperCase()}" REGISTERED FOR ${opId(t?.tid ?? 0n)} — EVERYONE SEES IT.`
         : 'NICKNAME CLEARED.',
     )
   }
