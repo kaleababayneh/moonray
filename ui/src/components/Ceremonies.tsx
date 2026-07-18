@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Btn, fmtClock, Icon, pad4 } from './Hud'
 import { useAnimatedNumber } from '../hooks/useAnimatedNumber'
-import { MAX_CUTS, TIERS } from '@moonray/engine'
+import { MAX_CUTS } from '@moonray/engine'
 import type { SealProgress, SealStage } from '../midnight/GameContext'
 
 /** Slow gold-and-violet dust orbiting behind the ceremony. */
@@ -120,21 +120,18 @@ export function WinOverlay({
   onNext: () => void
   onClose: () => void
 }) {
-  const tier = [...TIERS].reverse().find((t) => score >= t.threshold) ?? null
   const shown = useAnimatedNumber(score, 1000, 0)
   const efficiency = Math.round(((MAX_CUTS + 1 - cuts) / MAX_CUTS) * 100)
   const [copied, setCopied] = useState(false)
 
   const share = async () => {
-    const text = `MOONRAY ${operationId} — ${tier ? tier.name.toUpperCase() + ' · ' : ''}${score} pts · ${cuts}/${MAX_CUTS} cuts · proven in zero knowledge on Midnight`
+    const text = `MOONRAY ${operationId} — ${score} pts · ${cuts}/${MAX_CUTS} cuts · proven in zero knowledge on Midnight`
     try {
       await navigator.clipboard.writeText(text)
       setCopied(true)
       setTimeout(() => setCopied(false), 1800)
     } catch {}
   }
-
-  const tn = (tier?.name ?? 'bronze').toLowerCase()
 
   return (
     <Backdrop label="Operation complete" onClose={onClose} dust>
@@ -143,25 +140,15 @@ export function WinOverlay({
       </span>
 
       <div className="tier-emblem-wrap rise" style={{ '--d': '90ms' } as React.CSSProperties}>
-        <div className={`tier-emblem tier-emblem--${tn}`}>
+        <div className="tier-emblem">
           <span className="tier-rays" aria-hidden="true" />
-          <b>{(tier?.name ?? '·').charAt(0)}</b>
+          <b>✦</b>
         </div>
       </div>
 
-      <h2 className={`tier-name tier-name--${tn} rise`} style={{ '--d': '200ms' } as React.CSSProperties}>
-        {tier?.name ?? 'Cleared'}
+      <h2 className="tier-name rise" style={{ '--d': '200ms' } as React.CSSProperties}>
+        Field cleared
       </h2>
-
-      <div className="tier-ladder rise" style={{ '--d': '280ms' } as React.CSSProperties}>
-        {TIERS.map((t) => (
-          <div key={t.tier} className={`ladder-step ${score >= t.threshold ? 'is-held' : ''}`}>
-            <i aria-hidden="true" />
-            <span>{t.name.toUpperCase()}</span>
-            <b>{t.threshold}</b>
-          </div>
-        ))}
-      </div>
 
       <div className="ceremony-score rise" style={{ '--d': '340ms' } as React.CSSProperties}>
         <span>FINAL SCORE</span>

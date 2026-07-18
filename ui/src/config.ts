@@ -67,5 +67,5 @@ export const LS_PRACTICE_BEST = 'moonray_practice_best_v1';
 export const LS_DAILY_BEST = 'moonray_daily_best_v1';
 export const LS_THEME = 'moonray_theme_v1';
 export const LS_DISPLAY_NAMES = 'moonray_display_names_v1';
-export const LS_CALLSIGN = 'moonray_callsign_v1';
+export const LS_NICKNAME = 'moonray_callsign_v1';
 export const SESSION_WALLET_KEY = 'moonray_wallet_session_v1';

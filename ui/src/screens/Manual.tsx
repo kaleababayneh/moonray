@@ -7,7 +7,7 @@
 import { useState } from 'react'
 import { Btn, Icon } from '../components/Hud'
 import { MoonrayMark } from '../components/MoonrayMark'
-import { MAX_CUTS, TIERS } from '@moonray/engine'
+import { MAX_CUTS } from '@moonray/engine'
 import { LS_RUNS, LS_SECRET_KEY } from '../config'
 import { useGame } from '../midnight/GameContext'
 
@@ -179,23 +179,6 @@ export function Manual({ onBack }: { onBack: () => void }) {
           </small>
         </article>
 
-        <article className="sheet rise" style={{ '--d': '420ms' } as React.CSSProperties}>
-          <span className="hud-label">OPERATOR RANKS</span>
-          <div className="rank-rows">
-            {TIERS.map((t) => (
-              <div className="rank-row" key={t.tier}>
-                <i className={`rank-medal rank-medal--${t.name.toLowerCase()}`} aria-hidden="true" />
-                <strong>{t.name}</strong>
-                <b>{t.threshold}+ PTS</b>
-              </div>
-            ))}
-          </div>
-          <p style={{ marginTop: 12 }}>
-            Ranks can be claimed on-chain as badges — a proof that your hidden score clears the
-            threshold, without ever revealing the number.
-          </p>
-        </article>
-
         <article className="sheet rise" style={{ '--d': '480ms' } as React.CSSProperties}>
           <span className="hud-label">COMMAND KEYS</span>
           <div className="key-rows">
@@ -245,10 +228,6 @@ export function Manual({ onBack }: { onBack: () => void }) {
               <span>the score — only by your explicit choice</span>
             </div>
             <div>
-              <b>badges</b>
-              <span>a threshold fact — the exact score is never derivable</span>
-            </div>
-            <div>
               <b>never on-chain</b>
               <span>your cuts, pieces, secret key, nonce, unrevealed scores</span>
             </div>
@@ -260,7 +239,7 @@ export function Manual({ onBack }: { onBack: () => void }) {
           <h2>Back up your reveals</h2>
           <p>
             Your secret key and per-operation reveal nonces live only in this browser. Lose them
-            and proven scores can never be revealed or turned into badges.
+            and proven scores can never be revealed.
           </p>
           <Vault />
         </article>

@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { pickUsableSeed, preflightRun, type TournamentView } from '@moonray/api'
-import { MAX_CUTS, TIERS, totalObjects } from '@moonray/engine'
+import { MAX_CUTS, totalObjects } from '@moonray/engine'
 import { Backdrop } from './components/Backdrop'
 import { GameOverOverlay, SealCeremony, WinOverlay } from './components/Ceremonies'
 import { CutPips, fmtClock, Glyph, Icon, ScoreReadout, WalletChip } from './components/Hud'
@@ -263,7 +263,6 @@ function Shell() {
               text: `${game.cutsLeft} cut${game.cutsLeft === 1 ? '' : 's'} remaining.`,
             }
           : { kind: 'idle', lead: 'Awaiting trajectory', text: `${total} moonlets share two plates.` }
-  const tier = [...TIERS].reverse().find((t) => game.assignment.score >= t.threshold) ?? null
   const record = best > 0 && best > initialBest.current && game.assignment.score === best
 
   const sealActions = {
@@ -368,7 +367,7 @@ function Shell() {
                 score={game.assignment.score}
                 best={Math.max(best, game.assignment.score)}
                 record={record}
-                rank={tier?.name ?? null}
+                rank={null}
               />
             </div>
           </header>

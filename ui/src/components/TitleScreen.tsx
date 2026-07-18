@@ -134,7 +134,6 @@ export function TitleScreen({
   const open = tournament != null && nowSec < tournament.submitUntil
   const myRun = tournament ? g.myRuns()[tournament.tid.toString()] : undefined
   const revealedCount = tournament?.ranking.length ?? 0
-  const badgeCount = g.ledger?.badges.length ?? 0
   const sealedCount = g.ledger?.sealedCommits.size ?? 0
 
   const dailySub = !g.contractAddress
@@ -205,7 +204,7 @@ export function TitleScreen({
         <button className="menu-item rise" style={{ '--d': '440ms' } as React.CSSProperties} onClick={onRanking}>
           <span className="menu-label">Ranking</span>
           <span className="menu-sub">
-            {sealedCount} PROVEN · {revealedCount} REVEALED · {badgeCount} HONOURS
+            {sealedCount} PROVEN · {revealedCount} REVEALED
           </span>
         </button>
         <button className="menu-item rise" style={{ '--d': '510ms' } as React.CSSProperties} onClick={onManual}>
