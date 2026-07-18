@@ -4,13 +4,13 @@
  * your nickname and wallet. Nicknames are device-local labels.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { TournamentView } from '@moonray/api'
 import { Btn, fmtClock, Icon, WalletChip } from '../components/Hud'
 import { MoonrayMark } from '../components/MoonrayMark'
 import { opId } from '../components/TitleScreen'
 import { Identicon, shortNul } from '../components/Identicon'
-import { LS_DISPLAY_NAMES, LS_NICKNAME } from '../config'
+import { LS_DISPLAY_NAMES, LS_NICKNAME, NAMES_URL } from '../config'
 import { useGame } from '../midnight/GameContext'
 
 const loadNames = (): Record<string, string> => {
@@ -20,6 +20,18 @@ const loadNames = (): Record<string, string> => {
     return {}
   }
 }
+
+/** Registry entries published by operators who registered on the leaderboard. */
+type RegistryEntry = { name: string; address: string }
+
+const shortAddr = (a: string) => `${a.slice(0, 18)}…${a.slice(-6)}`.toUpperCase()
+
+const publishName = (nullifier: bigint, name: string, address: string) =>
+  fetch(NAMES_URL, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ nullifier: nullifier.toString(), name, address }),
+  }).catch(() => undefined)
 
 export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number }) {
   const g = useGame()
@@ -38,6 +50,33 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
 
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
+  const [registry, setRegistry] = useState<Record<string, RegistryEntry>>({})
+
+  // shared name registry: everyone sees registered nicknames + wallets
+  useEffect(() => {
+    let stop = false
+    const load = () =>
+      fetch(NAMES_URL)
+        .then((r) => r.json())
+        .then((m: Record<string, RegistryEntry>) => {
+          if (!stop) setRegistry(m)
+        })
+        .catch(() => undefined)
+    void load()
+    const iv = setInterval(load, 15_000)
+    return () => {
+      stop = true
+      clearInterval(iv)
+    }
+  }, [])
+
+  /** Publish my nickname for every op I have run material for (incl. this one). */
+  const publishAll = (name: string) => {
+    if (!g.connected) return
+    const tids = new Set(Object.keys(g.myRuns()))
+    if (t) tids.add(t.tid.toString())
+    for (const k of tids) void publishName(g.myNullifier(BigInt(k)), name, g.walletAddress ?? '')
+  }
 
   const reveal = async () => {
     if (!t) return
@@ -45,6 +84,7 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
     setMsg(null)
     try {
       const { score } = await g.revealScore(t.tid)
+      if (nickname) publishAll(nickname)
       setMsg(`REVEALED ${score} PTS — THE RANKING UPDATES AS THE INDEXER CATCHES UP.`)
     } catch (err) {
       setMsg(`REVEAL FAILED: ${err instanceof Error ? err.message : String(err)}`)
@@ -58,7 +98,12 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
     setNickname(v)
     if (v) localStorage.setItem(LS_NICKNAME, v)
     else localStorage.removeItem(LS_NICKNAME)
-    setMsg(v ? `NICKNAME "${v.toUpperCase()}" REGISTERED — SHOWN BESIDE YOUR ENTRIES.` : 'NICKNAME CLEARED.')
+    publishAll(v)
+    setMsg(
+      v
+        ? `NICKNAME "${v.toUpperCase()}" REGISTERED — EVERYONE SEES IT BESIDE YOUR ENTRIES.`
+        : 'NICKNAME CLEARED.',
+    )
   }
 
   const setName = (nul: bigint, name: string) => {
@@ -183,7 +228,8 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
             ) : (
               t.ranking.map((r, i) => {
                 const mine = myNul !== null && r.nullifier === myNul
-                const name = names[r.nullifier.toString()]
+                const reg = registry[r.nullifier.toString()]
+                const name = names[r.nullifier.toString()] ?? reg?.name
                 return (
                   <div key={r.nullifier.toString()} className={`ledger-row ${mine ? 'is-me' : ''}`}>
                     <span className="ledger-rank">{String(i + 1).padStart(2, '0')}</span>
@@ -192,7 +238,7 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
                       {mine ? (
                         <input
                           placeholder={nickname || 'you — add a name'}
-                          value={name ?? ''}
+                          value={names[r.nullifier.toString()] ?? ''}
                           onChange={(e) => setName(r.nullifier, e.target.value)}
                           aria-label="Display name for your entry"
                         />
@@ -201,8 +247,10 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
                       )}
                       <small>
                         {mine && g.walletAddress
-                          ? `${g.walletAddress.slice(0, 18)}…${g.walletAddress.slice(-6)}`.toUpperCase()
-                          : shortNul(r.nullifier).toUpperCase()}
+                          ? shortAddr(g.walletAddress)
+                          : reg?.address
+                            ? shortAddr(reg.address)
+                            : shortNul(r.nullifier).toUpperCase()}
                       </small>
                     </div>
                     <b className="ledger-score">{r.score}</b>
@@ -211,10 +259,6 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
               })
             )}
           </div>
-          <p className="archive-note">
-            {/* YOUR NICKNAME AND NAMES ARE LABELS ON THIS DEVICE. ON-CHAIN, EVERY ENTRY IS A
-            NULLIFIER — YOU RECOGNISE YOURS BECAUSE ONLY YOUR KEY DERIVES IT. */}
-          </p>
         </article>
       </div>
     </section>

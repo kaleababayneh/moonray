@@ -30,7 +30,7 @@ import {
   type SlicerProviders,
 } from '@moonray/api';
 import type { RunRecord, SlicerPrivateState } from '@moonray/contract';
-import { LS_RUNS, LS_SECRET_KEY, type UiNetworkConfig } from '../config';
+import { LS_SECRET_KEY, runsKeyFor, type UiNetworkConfig } from '../config';
 
 const balancedTxHex = new WeakMap<object, string>();
 
@@ -68,18 +68,21 @@ const patchPublicDataProvider = <T extends { queryContractState: (a: string, c?:
 const hexToBytes = (h: string) => new Uint8Array(h.match(/.{2}/g)?.map((b) => parseInt(b, 16)) ?? []);
 const bytesToHex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 
-/** localStorage-mirrored private state (secretKey + runs; stagedRun transient). */
-export const localStorageHooks = () => ({
+/** localStorage-mirrored private state (secretKey global; runs scoped per contract). */
+export const localStorageHooks = (contractAddress?: string) => ({
   load: (): SlicerPrivateState | null => {
     const skHex = localStorage.getItem(LS_SECRET_KEY);
     if (!skHex) return null;
-    const runs = JSON.parse(localStorage.getItem(LS_RUNS) ?? '{}') as Record<string, RunRecord>;
+    const runs = JSON.parse(localStorage.getItem(runsKeyFor(contractAddress)) ?? '{}') as Record<
+      string,
+      RunRecord
+    >;
     return { secretKey: hexToBytes(skHex), runs };
   },
   save: (_key: string, state: SlicerPrivateState | null): void => {
     if (!state) return;
     localStorage.setItem(LS_SECRET_KEY, bytesToHex(state.secretKey));
-    localStorage.setItem(LS_RUNS, JSON.stringify(state.runs));
+    localStorage.setItem(runsKeyFor(contractAddress), JSON.stringify(state.runs));
   },
 });
 
@@ -97,6 +100,8 @@ export interface BuildProvidersOptions {
   config: UiNetworkConfig;
   /** route proofs to a local proof server instead of the wallet (advanced) */
   useLocalProver: boolean;
+  /** scopes the stored run records — reveals never cross contracts */
+  contractAddress?: string;
 }
 
 export async function buildBrowserProviders(opts: BuildProvidersOptions): Promise<SlicerProviders> {
@@ -148,7 +153,7 @@ export async function buildBrowserProviders(opts: BuildProvidersOptions): Promis
 
   return {
     privateStateProvider: createPrivateStateProvider<'MoonraySlicerState', SlicerPrivateState>(
-      localStorageHooks(),
+      localStorageHooks(opts.contractAddress),
     ) as never,
     publicDataProvider:
       config.networkId === 'undeployed'

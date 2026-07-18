@@ -28,6 +28,7 @@ import type { PlayState } from '@moonray/engine';
 import {
   DEFAULT_NETWORK,
   fetchDeployment,
+  runsKeyFor,
   UI_NETWORKS,
   type UiNetworkConfig,
 } from '../config';
@@ -179,6 +180,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         api: session.api,
         config: networkConfig,
         useLocalProver,
+        contractAddress: deploymentAddress ?? undefined,
       });
       providersRef.current = providers;
       await join(providers);
@@ -206,6 +208,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
           api: session.api,
           config: networkConfig,
           useLocalProver,
+          contractAddress: deploymentAddress ?? undefined,
         });
         providersRef.current = providers;
         await join(providers);
@@ -229,6 +232,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         api: session.api,
         config: networkConfig,
         useLocalProver,
+        contractAddress: deploymentAddress ?? undefined,
       });
       if (cancelled) return;
       providersRef.current = providers;
@@ -289,11 +293,11 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
 
   const myRuns = useCallback(() => {
     try {
-      return JSON.parse(localStorage.getItem('moonray_runs_v1') ?? '{}');
+      return JSON.parse(localStorage.getItem(runsKeyFor(deploymentAddress)) ?? '{}');
     } catch {
       return {};
     }
-  }, []);
+  }, [deploymentAddress]);
 
   const value: GameContextValue = {
     networkConfig,
