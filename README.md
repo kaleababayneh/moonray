@@ -1,9 +1,10 @@
 # 🌙 Moonray — Slicer
 
 **A sealed-score arcade game on [Midnight](https://midnight.network).** Everyone plays the same
-seed-derived board each day. You slice a convex octagon with up to 3 straight cuts to isolate
-every glowing *moonlet* in its own piece. Your cuts and your score stay private — a
-zero-knowledge proof, verified by network consensus, shows they're valid.
+seed-derived field each day: TWO irregular survey plates holding 6–14 glowing *moonlets*,
+sliced by up to 3 shared straight cuts. A piece left holding exactly one moonlet dissolves and
+*collects* it. Your cuts and your score stay private — a zero-knowledge proof, verified by
+network consensus, shows they're valid.
 
 A ZK-native rebuild of [xray.games](https://github.com/fredericrezeau/xray-games)' Chain Slicer
 (Stellar + Groth16 + trusted attestor) as a single Compact contract: level generation moved
@@ -24,8 +25,8 @@ their validity is proven*.
    valid for today's seed and scores what you claim, then writes a **sealed score commitment**
    under an anonymous **nullifier**. `score = 10·isolated + (fullClear ? 5·(4−cutsUsed) : 0)`.
 3. **Reveal — or don't** — after submissions close, reveal your score for the leaderboard, or
-   `claimBadge` a tier ("score ≥ 40") and never reveal the number. Same entry, your choice of
-   disclosure. That asymmetry is the whole point.
+   `claimBadge` a tier (Bronze 40 / Silver 70 / Gold 85) and never reveal the number. Same
+   entry, your choice of disclosure. That asymmetry is the whole point.
 
 ## Architecture
 
@@ -48,7 +49,7 @@ moonray/
 
 | Circuit | Purpose | Prover key |
 |---|---|---|
-| `submitRun` | in-circuit level gen from seed + full geometric verification of the claimed partition + nullifier + sealed commit | 34 MB |
+| `submitRun` | in-circuit level gen (two plates, dual entropy streams) + full geometric verification of the claimed partition incl. dissolved pieces + nullifier + sealed commit | 68 MB |
 | `revealScore` | open the commitment during the reveal window | 148 KB |
 | `claimBadge` | prove `score ≥ tier` — score stays private (args are private by default) | 288 KB |
 | `createTournament` / `addAdmin` | admin ops (domain-separated key hash) | 2.8 MB |
@@ -122,8 +123,8 @@ VITE_MOONRAY_NETWORK=preprod npm run build   # then host ui/dist statically (key
 
 | Step | Time |
 |---|---|
-| full compile incl. ZK keygen (5 circuits) | 38 s |
-| `submitRun` — proof + balance + submit | 25–31 s |
+| full compile incl. ZK keygen (5 circuits) | 67 s |
+| `submitRun` — proof + balance + submit | see docs/log.md (roughly 2x the single-plate 25–31 s) |
 | `revealScore` / `claimBadge` / `createTournament` | 17–21 s |
 | engine + contract test suites (32 tests incl. cheat suite) | < 2 s |
 
