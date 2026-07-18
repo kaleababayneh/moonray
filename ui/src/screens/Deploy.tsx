@@ -73,7 +73,8 @@ export function DeployPage() {
     async (game: MoonraySlicer, providers: SlicerProviders, address: string) => {
       const nowSec = Math.floor(Date.now() / 1000)
       const tid = BigInt(Math.floor(nowSec / DAY))
-      const closeAt = (Math.floor(nowSec / DAY) + 1) * DAY
+      // proofs stay open a full 24h from opening (not until UTC midnight)
+      const closeAt = nowSec + DAY
 
       push(`checking ${opId(tid)}…`)
       const view = await fetchLedger(providers, address).catch(() => null)

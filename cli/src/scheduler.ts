@@ -26,7 +26,9 @@ const main = async () => {
   for (;;) {
     const nowSec = Math.floor(Date.now() / 1000)
     const tid = BigInt(Math.floor(nowSec / DAY))
-    const closeAt = (Math.floor(nowSec / DAY) + 1) * DAY
+    const boundary = (Math.floor(nowSec / DAY) + 1) * DAY
+    // proofs stay open a full 24h from opening (not until UTC midnight)
+    const closeAt = nowSec + DAY
 
     try {
       const view = await fetchLedger(providers, address)
@@ -48,8 +50,8 @@ const main = async () => {
       console.error(`  scheduler error (will retry): ${String(err).slice(0, 140)}`)
     }
 
-    // sleep until just past the next UTC midnight
-    const waitMs = (closeAt - Math.floor(Date.now() / 1000)) * 1000 + 5_000
+    // sleep until just past the next UTC midnight (when the tid rolls over)
+    const waitMs = (boundary - Math.floor(Date.now() / 1000)) * 1000 + 5_000
     console.log(`  next field in ${Math.max(1, Math.round(waitMs / 60000))} min`)
     await sleep(Math.max(5_000, waitMs))
   }
