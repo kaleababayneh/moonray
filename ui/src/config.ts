@@ -43,6 +43,13 @@ export const fetchDeployment = async (): Promise<Deployment | null> => {
     const net = UI_NETWORKS[DEFAULT_NETWORK];
     return { network: DEFAULT_NETWORK, networkId: net.networkId, address: CONTRACT_ADDRESS_OVERRIDE };
   }
+  // A deployment made from this browser (/deploy) wins over the bundled file.
+  try {
+    const local = localStorage.getItem(LS_DEPLOYMENT);
+    if (local) return JSON.parse(local) as Deployment;
+  } catch {
+    /* fall through */
+  }
   try {
     const res = await fetch('/deployment.json', { cache: 'no-store' });
     if (!res.ok) return null;
@@ -53,6 +60,7 @@ export const fetchDeployment = async (): Promise<Deployment | null> => {
 };
 
 // localStorage keys
+export const LS_DEPLOYMENT = 'moonray_deployment_v1';
 export const LS_SECRET_KEY = 'moonray_secret_key_v1';
 export const LS_RUNS = 'moonray_runs_v1';
 export const LS_PRACTICE_BEST = 'moonray_practice_best_v1';
