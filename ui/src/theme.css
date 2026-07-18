@@ -2052,3 +2052,9 @@ input.deploy-pass {
   font-size: 11px;
   letter-spacing: 0.2em;
 }
+
+/* station prover reminder */
+.prover-warn {
+  font-style: normal;
+  color: var(--rose);
+}

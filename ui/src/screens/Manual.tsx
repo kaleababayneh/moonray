@@ -183,6 +183,13 @@ export function Manual({ onBack }: { onBack: () => void }) {
               <b>wallet</b>
               <span>{g.connected ? `linked via ${g.walletName}` : 'not linked'}</span>
             </div>
+            <div>
+              <b>prover</b>
+              <span>
+                {g.networkConfig.proofServer}{' '}
+                <i className="prover-warn">(make sure it is the local prover)</i>
+              </span>
+            </div>
           </div>
         </article>
       </div>
