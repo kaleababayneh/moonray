@@ -21,7 +21,7 @@ const loadNames = (): Record<string, string> => {
   }
 }
 
-export function Archive({ onBack, nowSec }: { onBack: () => void; nowSec: number }) {
+export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number }) {
   const g = useGame()
   const [names, setNames] = useState(loadNames)
   const tournaments = g.ledger?.tournaments ?? []
@@ -87,8 +87,8 @@ export function Archive({ onBack, nowSec }: { onBack: () => void; nowSec: number
       </header>
 
       <div className="manual-head rise" style={{ '--d': '60ms' } as React.CSSProperties}>
-        <span className="hud-label">ARCHIVE</span>
-        <h1>Operations ledger</h1>
+        <span className="hud-label">RANKING</span>
+        <h1>Ranking</h1>
         <p>
           Scores stay sealed while an operation runs — the chain knows only that entries exist.
           When the seals open, operators choose: reveal the number, or claim an honour and keep it
@@ -117,7 +117,7 @@ export function Archive({ onBack, nowSec }: { onBack: () => void; nowSec: number
               ? `SEALS CLOSE IN ${fmtClock(Math.max(0, (t?.submitUntil ?? 0) - nowSec))}`
               : phase === 'reveal'
                 ? `REVEALS CLOSE IN ${fmtClock(Math.max(0, (t?.revealUntil ?? 0) - nowSec))}`
-                : 'ARCHIVED'}
+                : 'CLOSED'}
           </span>
         )}
         <span className="phase-chip">{g.ledger?.sealedCommits.size ?? 0} SEALED</span>

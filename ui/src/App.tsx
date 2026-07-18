@@ -12,11 +12,11 @@ import { Backdrop } from './components/Backdrop'
 import { GameOverOverlay, SealCeremony, WinOverlay } from './components/Ceremonies'
 import { CutPips, fmtClock, Glyph, Icon, ScoreReadout, WalletChip } from './components/Hud'
 import { MoonrayMark } from './components/MoonrayMark'
-import { TitleScreen } from './components/TitleScreen'
+import { opId, TitleScreen } from './components/TitleScreen'
 import { BoardCanvas } from './game/BoardCanvas'
 import { rejectionText, useSlicerGame } from './game/useSlicerGame'
 import { GameProvider, useGame } from './midnight/GameContext'
-import { Archive } from './screens/Archive'
+import { Ranking } from './screens/Ranking'
 import { Manual } from './screens/Manual'
 import * as sfx from './lib/sfx'
 
@@ -60,7 +60,7 @@ function Shell() {
   gameRef.current = game
 
   const operationId = daily
-    ? `OP-${tournament.tid.toString().padStart(3, '0')}`
+    ? opId(tournament.tid)
     : `EXP-${(practiceSeed % 1048576n).toString(16).toUpperCase().padStart(5, '0')}`
   const countdown = daily ? Math.max(0, tournament.submitUntil - nowSec) : 0
 
@@ -296,7 +296,7 @@ function Shell() {
               newPractice()
               setScreen('play')
             }}
-            onArchive={() => {
+            onRanking={() => {
               backFrom.current = 'title'
               setScreen('archive')
             }}
@@ -316,7 +316,7 @@ function Shell() {
 
       {screen === 'archive' && (
         <main className="screen-root">
-          <Archive nowSec={nowSec} onBack={() => setScreen(backFrom.current)} />
+          <Ranking nowSec={nowSec} onBack={() => setScreen(backFrom.current)} />
         </main>
       )}
 
@@ -354,7 +354,7 @@ function Shell() {
                 <Glyph label={muted ? 'Turn sound on' : 'Turn sound off'} onClick={toggleMute} aria-pressed={!muted}>
                   <Icon name={muted ? 'soundOff' : 'sound'} />
                 </Glyph>
-                <Glyph label="Archive" onClick={() => {
+                <Glyph label="Ranking" onClick={() => {
                   backFrom.current = 'play'
                   setScreen('archive')
                 }}>

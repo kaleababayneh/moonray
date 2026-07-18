@@ -10,6 +10,9 @@ import { makeMoonSprite } from '../game/render'
 import { useGame } from '../midnight/GameContext'
 import type { TournamentView } from '@moonray/api'
 
+/** Hourly tids are hours-since-epoch — display the last 4 digits. */
+export const opId = (tid: bigint) => `OP-${(tid % 10000n).toString().padStart(4, '0')}`
+
 function HeroMoon({ size = 300 }: { size?: number }) {
   const ref = useRef<HTMLCanvasElement>(null)
 
@@ -110,7 +113,7 @@ export function TitleScreen({
   onToggleMute,
   onDaily,
   onExpedition,
-  onArchive,
+  onRanking,
   onManual,
 }: {
   tournament: TournamentView | null
@@ -119,7 +122,7 @@ export function TitleScreen({
   onToggleMute: () => void
   onDaily: () => void
   onExpedition: () => void
-  onArchive: () => void
+  onRanking: () => void
   onManual: () => void
 }) {
   const g = useGame()
@@ -134,10 +137,15 @@ export function TitleScreen({
     : !tournament
       ? 'NO ACTIVE OPERATION ON-CHAIN'
       : !open
-        ? `OP-${tournament.tid.toString().padStart(3, '0')} · SEALS CLOSED`
+        ? `${opId(tournament.tid)} · SEALS CLOSED`
         : myRun
-          ? `OP-${tournament.tid.toString().padStart(3, '0')} · SEALED ${myRun.score} PTS`
-          : `OP-${tournament.tid.toString().padStart(3, '0')} · SEALS CLOSE IN ${fmtClock(Math.max(0, tournament.submitUntil - nowSec))}`
+          ? `${opId(tournament.tid)} · SEALED ${myRun.score} PTS`
+          : `${opId(tournament.tid)} · A FRESH FIELD EVERY HOUR`
+
+  // the countdown under the wordmark: current field's close, else next hour
+  const timerSecs = open
+    ? Math.max(0, tournament.submitUntil - nowSec)
+    : 3600 - (nowSec % 3600)
 
   return (
     <section className="title-screen">
@@ -165,6 +173,10 @@ export function TitleScreen({
       <h1 className="title-word rise" style={{ '--d': '120ms' } as React.CSSProperties}>
         MOONRAY
       </h1>
+      <div className="title-timer rise" style={{ '--d': '160ms' } as React.CSSProperties}>
+        <span>{open ? 'FIELD CLOSES IN' : 'NEXT FIELD IN'}</span>
+        <b>{fmtClock(timerSecs)}</b>
+      </div>
       <p className="title-tag rise" style={{ '--d': '200ms' } as React.CSSProperties}>
         Slice the plates of moonlight. Set every moonlet free — and seal your score with a
         zero-knowledge proof on Midnight.
@@ -177,15 +189,15 @@ export function TitleScreen({
           onClick={onDaily}
           disabled={!tournament || !open}
         >
-          <span className="menu-label">Daily operation</span>
+          <span className="menu-label">Hourly operation</span>
           <span className="menu-sub">{dailySub}</span>
         </button>
         <button className="menu-item rise" style={{ '--d': '370ms' } as React.CSSProperties} onClick={onExpedition}>
           <span className="menu-label">Expedition</span>
           <span className="menu-sub">ENDLESS PROCEDURAL FIELDS · OFF-CHAIN</span>
         </button>
-        <button className="menu-item rise" style={{ '--d': '440ms' } as React.CSSProperties} onClick={onArchive}>
-          <span className="menu-label">Archive</span>
+        <button className="menu-item rise" style={{ '--d': '440ms' } as React.CSSProperties} onClick={onRanking}>
+          <span className="menu-label">Ranking</span>
           <span className="menu-sub">
             {sealedCount} SEALED · {revealedCount} REVEALED · {badgeCount} HONOURS
           </span>
@@ -207,7 +219,7 @@ export function TitleScreen({
         {myRun && (
           <>
             <i aria-hidden="true" />
-            <span>DAILY SEALED {pad4(myRun.score)}</span>
+            <span>SEALED {pad4(myRun.score)}</span>
           </>
         )}
       </footer>

@@ -8,7 +8,8 @@
     "stack:down": "docker compose -f standalone.yml down -v",
     "deploy:local": "tsx src/deploy.ts local",
     "e2e:local": "tsx src/e2e.ts local",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "schedule:local": "tsx src/scheduler.ts local"
   },
   "dependencies": {
     "@moonray/api": "*",

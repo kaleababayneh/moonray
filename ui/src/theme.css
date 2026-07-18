@@ -1799,6 +1799,26 @@ select.tourney-pick {
   margin-top: 14px;
 }
 
+/* title countdown — sits between the wordmark and the tagline */
+.title-timer {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 14px;
+}
+.title-timer span {
+  font: 500 9.5px var(--mono);
+  letter-spacing: 0.26em;
+  color: var(--ink-faint);
+}
+.title-timer b {
+  font: 500 20px var(--mono);
+  letter-spacing: 0.14em;
+  font-variant-numeric: tabular-nums;
+  color: var(--gold-hot);
+  text-shadow: 0 0 22px rgba(244, 200, 100, 0.45);
+}
+
 /* daily hud extras */
 .hud-op .is-sealed {
   color: var(--gold-hot);
