@@ -437,7 +437,7 @@ function Shell() {
                 }}
               >
                 <Icon name="spark" />
-                <span>NEW SECTOR</span>
+                <span>NEW GAME</span>
               </button>
             )}
           </footer>

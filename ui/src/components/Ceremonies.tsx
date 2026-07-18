@@ -202,7 +202,7 @@ export function WinOverlay({
           </Btn>
         ) : (
           <Btn variant="gold" onClick={onNext} autoFocus>
-            <span>{daily ? 'Start practice' : 'Next sector'}</span>
+            <span>{daily ? 'Start practice' : 'Next game'}</span>
             <Icon name="arrow" />
           </Btn>
         )}
@@ -283,7 +283,7 @@ export function GameOverOverlay({
           </Btn>
         )}
         <Btn variant={seal.canSeal ? 'ghost' : 'gold'} onClick={onNext} autoFocus={!seal.canSeal}>
-          <span>{daily ? 'Start practice' : 'New sector'}</span>
+          <span>{daily ? 'Start practice' : 'New game'}</span>
           <Icon name="arrow" />
         </Btn>
       </div>
