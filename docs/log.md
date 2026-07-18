@@ -118,3 +118,17 @@ Key findings:
   visually equivalent variety, deterministic, in-circuit. Non-convex plates
   (prototype example 3) are out: they'd break the all-edges-inside containment
   and the anti-overlap tiling proof.
+
+## Two-plate circuit on-chain + prototype UI port (2026-07-18)
+
+- Fresh deploy of the two-plate collect/dissolve circuit: constructor proof
+  22.6 s, createTournament 18.8 s. Both demo submitRun proofs (the doubled
+  circuit, 68 MB prover key) proved + balanced + landed within a 4-minute
+  window — roughly <= ~2 min each, wallet included.
+- Gotcha: after a multi-minute idle the headless wallet's dust-coin selection
+  can go stale -> node rejects with `1010: Custom error 104`. Remedy:
+  `cli/src/demo-finish.ts` (re-sync + retry); demo-seed now points at it.
+- UI completely re-skinned as the user's `game-visual-update` prototype
+  ("open field" design v3) — see the UI commit for the inventory. All chain
+  features preserved: wallet chip, seal ceremony, archive ledger/honours,
+  vault backup, live tournament state in the title menu.

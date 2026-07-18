@@ -85,12 +85,19 @@ const main = async () => {
     await sleep(waitMs);
   }
 
-  await alice.revealScore(tid);
-  console.log('  alice revealed');
-  await bob.revealScore(tid);
-  console.log('  bob revealed');
-  await alice.claimBadge(tid, 1);
-  console.log('  alice claimed Bronze');
+  try {
+    await alice.revealScore(tid);
+    console.log('  alice revealed');
+    await bob.revealScore(tid);
+    console.log('  bob revealed');
+    await alice.claimBadge(tid, 1);
+    console.log('  alice claimed Bronze');
+  } catch (err) {
+    // Long idles can leave the wallet's dust selection stale (node 1010/104).
+    console.error(`  reveal step failed (${String(err).slice(0, 90)}...)`);
+    console.error(`  finish with: npx tsx src/demo-finish.ts ${network} ${tid} 1`);
+    process.exit(1);
+  }
 
   console.log('demo data ready ✅');
   process.exit(0);
