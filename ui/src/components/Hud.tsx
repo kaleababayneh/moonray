@@ -236,7 +236,7 @@ export function WalletChip({
       title={connected ? `Connected via ${walletName} — click to disconnect` : 'Connect a Midnight wallet'}
     >
       <i aria-hidden="true" />
-      <span>{connecting ? 'LINKING…' : connected ? (walletName ?? 'LINKED').toUpperCase() : 'LINK WALLET'}</span>
+      <span>{connecting ? 'Connecting...' : connected ? (walletName ?? 'Connected').toUpperCase() : 'Connect Wallet'}</span>
     </button>
   )
 }
