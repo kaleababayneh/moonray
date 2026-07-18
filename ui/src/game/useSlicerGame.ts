@@ -10,6 +10,7 @@ import {
   assignObjects,
   type Assignment,
   type CutRejection,
+  type EnginePiece,
   levelFromEntropies,
   newGame,
   normalizeCut,
@@ -29,8 +30,13 @@ export interface DragPreview {
 }
 
 export interface CollectEvent {
+  /** the dissolved pieces (for ghost FX) */
+  pieces: EnginePiece[];
+  /** collected moonlet centers (engine space) */
+  centers: Pt[];
+  /** collected moonlet slots (crater-sprite identity) */
   slots: number[];
-  at: number;
+  nonce: number;
 }
 
 export interface SlicerGame {
@@ -43,7 +49,7 @@ export interface SlicerGame {
   preview: DragPreview | null;
   lastRejection: CutRejection | null;
   splitFlash: number; // increments on every successful cut (for animations)
-  lastCollect: CollectEvent | null;
+  collectEvent: CollectEvent | null;
   beginDrag(p: Pt): void;
   moveDrag(p: Pt): void;
   endDrag(p: Pt): boolean;
@@ -67,7 +73,8 @@ export const useSlicerGame = (seed: bigint): SlicerGame => {
   const [preview, setPreview] = useState<DragPreview | null>(null);
   const [lastRejection, setLastRejection] = useState<CutRejection | null>(null);
   const [splitFlash, setSplitFlash] = useState(0);
-  const [lastCollect, setLastCollect] = useState<CollectEvent | null>(null);
+  const [collectEvent, setCollectEvent] = useState<CollectEvent | null>(null);
+  const collectNonce = useRef(0);
   const dragStart = useRef<Pt | null>(null);
 
   // seed change -> fresh game
@@ -136,7 +143,12 @@ export const useSlicerGame = (seed: bigint): SlicerGame => {
       setLastRejection(null);
       setSplitFlash((n) => n + 1);
       if (res.collectedSlots.length > 0) {
-        setLastCollect({ slots: res.collectedSlots, at: performance.now() });
+        setCollectEvent({
+          pieces: res.dissolved,
+          centers: res.collectedSlots.map((slot) => state.level.objects[slot]),
+          slots: res.collectedSlots,
+          nonce: ++collectNonce.current,
+        });
       }
       return true;
     },
@@ -170,7 +182,7 @@ export const useSlicerGame = (seed: bigint): SlicerGame => {
     preview,
     lastRejection,
     splitFlash,
-    lastCollect,
+    collectEvent,
     beginDrag,
     moveDrag,
     endDrag,
