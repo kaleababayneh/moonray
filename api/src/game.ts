@@ -19,7 +19,7 @@ import {
 } from '@moonray/contract';
 import {
   buildRunBundle,
-  levelFromEntropy,
+  levelFromEntropies,
   nonceFromBytes,
   type PlayState,
   seedIsUsable,
@@ -44,11 +44,16 @@ export const randomFieldNonce = (): bigint =>
 
 export const randomSecretKey = (): Uint8Array => crypto.getRandomValues(new Uint8Array(32));
 
-/** Random usable tournament seed (skips the ~0.8% unusable band). */
+/** Random usable tournament seed (both entropy streams must decompose). */
 export const pickUsableSeed = (): bigint => {
   for (;;) {
     const seed = randomFieldNonce();
-    if (seedIsUsable(pureCircuits.levelEntropy(seed))) return seed;
+    if (
+      seedIsUsable(pureCircuits.levelEntropy(seed)) &&
+      seedIsUsable(pureCircuits.levelEntropy2(seed))
+    ) {
+      return seed;
+    }
   }
 };
 
@@ -59,9 +64,10 @@ export type PreflightResult =
 /** Run the exact circuit assertions client-side (no proof, no network). */
 export const preflightRun = (state: PlayState, seed: bigint): PreflightResult => {
   try {
-    const entropy = pureCircuits.levelEntropy(seed);
-    const bundle = buildRunBundle(state, entropy, 1n);
-    const level = pureCircuits.buildLevelFrom(seed, bundle.seedLimbs, bundle.seedHi);
+    const entropy1 = pureCircuits.levelEntropy(seed);
+    const entropy2 = pureCircuits.levelEntropy2(seed);
+    const bundle = buildRunBundle(state, entropy1, entropy2, 1n);
+    const level = pureCircuits.buildLevelFrom(seed, bundle.seedLimbs, bundle.seedHi, bundle.seedLimbs2, bundle.seedHi2);
     const score = pureCircuits.verifyRunPure(
       level,
       bundle.cuts,
@@ -147,7 +153,10 @@ export class MoonraySlicer {
     submitUntil: Date,
     revealUntil: Date,
   ): Promise<TxInfo> {
-    if (!seedIsUsable(pureCircuits.levelEntropy(seed))) {
+    if (
+      !seedIsUsable(pureCircuits.levelEntropy(seed)) ||
+      !seedIsUsable(pureCircuits.levelEntropy2(seed))
+    ) {
       throw new Error('seed is in the unusable entropy band — use pickUsableSeed()');
     }
     const txData = await this.deployed.callTx.createTournament(
@@ -169,9 +178,10 @@ export class MoonraySlicer {
     const pre = preflightRun(playState, seed);
     if (!pre.ok) throw new Error(`run would not prove: ${pre.reason}`);
 
-    const entropy = pureCircuits.levelEntropy(seed);
+    const entropy1 = pureCircuits.levelEntropy(seed);
+    const entropy2 = pureCircuits.levelEntropy2(seed);
     const nonce = randomFieldNonce();
-    const bundle = buildRunBundle(playState, entropy, nonce);
+    const bundle = buildRunBundle(playState, entropy1, entropy2, nonce);
 
     const ps = await this.privateState();
     const staged: StagedRun = bundle;
@@ -224,6 +234,13 @@ export class MoonraySlicer {
 
 /** Level helpers re-exported where the UI needs them with the seed. */
 export const levelForSeed = (seed: bigint) => {
-  const entropy = pureCircuits.levelEntropy(seed);
-  return { entropy, level: levelFromEntropy(entropy), limbs: splitEntropy(entropy) };
+  const entropy1 = pureCircuits.levelEntropy(seed);
+  const entropy2 = pureCircuits.levelEntropy2(seed);
+  return {
+    entropy1,
+    entropy2,
+    level: levelFromEntropies(entropy1, entropy2),
+    limbs: splitEntropy(entropy1),
+    limbs2: splitEntropy(entropy2),
+  };
 };

@@ -82,3 +82,39 @@ Flow verified on-chain: two players seal under distinct nullifiers; replay
 rejected by the node ("already played"); wrong-level witnesses blocked by
 preflight ("edge start off source line"); ranking [45, 0] after reveals;
 Silver badge claimed with the score still sealed on the badge path.
+
+## Redesign — two irregular plates, collect/dissolve (2026-07-18)
+
+Rebuilt to match the user's frontend prototype (game-visual-update): TWO
+lopsided convex plates (octagon + heptagon, hill-climb-searched irregular
+templates with verified margins), per-board daily center drift, 3-7 moonlets
+per plate (6-14 total), and the collect/dissolve mechanic — a piece holding
+exactly one moonlet retires and collects it.
+
+Key findings:
+
+- **Collect/dissolve is provable with ZERO extra circuit machinery.** Claimed
+  pieces = retired pieces + survivors; every claimed piece is a disjoint union
+  of cut-arrangement cells, so the set still tiles both plates exactly and
+  never exceeds 8 + 3 crossings = 11 pieces. A collected moonlet's containment
+  proof runs against its retired piece, which legalises the frontend's rule
+  that later cuts ignore collected moonlets.
+- **Entropy budget:** two streams (transientHash([seed,1]) / ([seed,2])), 62
+  limbs exactly: 30 board-vertex jitters + 28 object jitters + 4 center-drift
+  limbs; moonlet counts ride the hi limbs (5 uniform bands over 0..114).
+- **Degenerate-edge bug** found by the 100-seed property suite: a cut through
+  a plate vertex produced two rounded intersection points 1px apart — a
+  degenerate edge whose line is numerically meaningless, failing containment.
+  Fix: merge ring vertices within 6px; if source-tracking still fails, the
+  cut is rejected as "grazes a corner" (honest UX, rare).
+- Scoring per the prototype: 10 x isolated + full-clear bonus 5 x (4 - cuts);
+  tiers Bronze 40 / Silver 70 / Gold 85. Heavy days (>11 moonlets) provably
+  cannot full-clear (pigeonhole); max 11 isolated.
+- Circuit cost roughly doubled: submitRun prover key 34 MB -> 68 MB, full
+  keygen 38 s -> 67 s. Prove time re-measured in the e2e below.
+- What Compact cannot reproduce from the prototype: convex-hull-of-random-
+  points level generation with variable vertex counts (loops/sorting/retries).
+  Replaced with jittered irregular fixed-topology templates + center drift —
+  visually equivalent variety, deterministic, in-circuit. Non-convex plates
+  (prototype example 3) are out: they'd break the all-edges-inside containment
+  and the anti-overlap tiling proof.

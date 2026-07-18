@@ -80,9 +80,12 @@ export const HowItWorks = () => {
       <div className="card">
         <h3 style={{ marginTop: 0 }}>Scoring</h3>
         <p className="muted" style={{ marginBottom: 0 }}>
-          <code>score = 10 × isolated moonlets + full-clear bonus</code> — the bonus is{' '}
-          <code>5 × (4 − cuts used)</code>, so isolating everything with fewer cuts pays more.
-          Boards have 4–6 moonlets; a perfect 6-moonlet board with 3 cuts scores 65.
+          Two survey plates share your three cuts — a slice can work in both plates at once.
+          A piece left holding exactly one moonlet dissolves and <em>collects</em> it.{' '}
+          <code>score = 10 × isolated + full-clear bonus of 5 × (4 − cuts)</code>. Each plate
+          spawns 3–7 moonlets (6–14 total); three cuts can make at most 11 pieces, so heavy
+          days mathematically cannot be full-cleared — chase the maximum instead. Tiers:
+          Bronze 40 · Silver 70 · Gold 85.
         </p>
       </div>
 

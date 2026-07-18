@@ -1,22 +1,27 @@
 // Moonray Slicer — sealed-score daily tournaments on Midnight.
 //
-// Everyone plays the same seed-derived board. Cuts and scores stay private;
-// their validity is proven. The ledger only ever learns three things:
-// an anonymous nullifier, a sealed score commitment, and (only if the player
-// chooses) either the revealed score or a threshold badge tier.
+// TWO irregular boards, one game: a lopsided octagon and a lopsided heptagon,
+// both seed-jittered, share the same 3 full-line cuts. Each board holds 4-7
+// moonlets (8-14 total). Pieces across both boards number at most
+// 8 + 3 cut-crossings = 11, so a heavy day (14 moonlets) can never be fully
+// cleared — every point is earned by threading cuts through the crowd. Light
+// days (8-11 moonlets) admit rare full clears, worth a +10 bonus.
 //
 // Constants are mirrored in engine/src/constants.ts — keep them in lockstep:
-//   GRID 4096 (coords Uint<12>) · BOARD_VERTS 8 · MAX_CUTS 3 · MAX_PIECES 8
-//   MAX_PIECE_VERTS 11 · MAX_OBJECTS 6 (actual 4-6)
+//   GRID 4096 (coords Uint<12>) · BOARD_A 8 verts (lopsided octagon, radii
+//   754-1103 @ (1090,2880)) · BOARD_B 7 verts (lopsided heptagon, radii
+//   737-1086 @ (2950,1330)) · vertex/object jitter [0,128) via j7
+//   MAX_CUTS 3 · MAX_PIECES 11 · MAX_PIECE_VERTS 11 · MAX_OBJECTS 14
 //   TOLC_PX2 4      — colinearity: dist(vertex, source line) <= 2px, normalized
 //   TOLIN_PX2 2025  — containment: object >= 45px inside every piece edge line
-//   AREA_TOL 32768  — tiling slack on 2*area sums (honest rounding <= ~15k;
-//                     the cheapest double-claim exploit needs >= ~73k, see README)
-//   MIN_CUT_AXIS 512 — cuts must span >= 512 on some axis (engine draws
-//                      full-crossing chords, so this always holds honestly)
-//   HI_MAX 114      — unique limb decomposition: hi*2^248 + limbs < 115*2^248 < p.
-//                     Seeds whose entropy has floor(e/2^248) == 115 (~0.8%) are
-//                     unusable; seed pickers skip them deterministically.
+//   AREA_TOL 32768  — tiling slack on 2*area sums (min object spacing 362px
+//                     keeps the cheapest double-claim exploit >= ~65k)
+//   MIN_CUT_AXIS 512 · HI_MAX 114 (unique limb split, both entropy streams)
+//
+// Template safety margins (verified by search, engine tests re-verify):
+//   convexity sagitta >= 205 > 2*91 worst-case jitter perturbation;
+//   object cells >= 137px inside every worst-case board edge; boards
+//   separated by >= 738px at any jitter.
 pragma language_version 0.23;
 
 import CompactStandardLibrary;
@@ -27,7 +32,13 @@ export struct Cut { a: Pt, b: Pt }
 export struct Piece { verts: Vector<11, Pt>, vertCount: Uint<8> }
 export struct EdgeHint { isCut: Boolean, idx: Uint<8> }
 export struct Tournament { seed: Field, submitUntil: Uint<64>, revealUntil: Uint<64> }
-export struct Level { board: Vector<8, Pt>, objects: Vector<6, Pt>, objectCount: Uint<8> }
+export struct Level {
+  boardA: Vector<8, Pt>,
+  boardB: Vector<7, Pt>,
+  objects: Vector<14, Pt>,
+  countA: Uint<8>,
+  countB: Uint<8>
+}
 struct NulPayload { domain: Bytes<32>, sk: Bytes<32>, tid: Uint<32> }
 
 // ---------- public state ----------
@@ -42,12 +53,13 @@ export ledger badges: Map<Field, Uint<8>>;     // nullifier -> tier
 witness playerSecret(): Bytes<32>;
 witness scoreNonce(): Field;
 witness seedLimbs(): [Vector<31, Uint<8>>, Uint<7>];
+witness seedLimbs2(): [Vector<31, Uint<8>>, Uint<7>];
 witness runCuts(): Vector<3, Cut>;
 witness runCutsUsed(): Uint<8>;
-witness runPieces(): Vector<8, Piece>;
+witness runPieces(): Vector<11, Piece>;
 witness runPieceCount(): Uint<8>;
-witness runEdgeHints(): Vector<8, Vector<11, EdgeHint>>;
-witness runObjectHints(): Vector<6, Uint<8>>;
+witness runEdgeHints(): Vector<11, Vector<11, EdgeHint>>;
+witness runObjectHints(): Vector<14, Uint<8>>;
 
 constructor() {
   admins.insert(disclose(adminId(playerSecret())));
@@ -63,6 +75,10 @@ export pure circuit levelEntropy(seed: Field): Field {
   return transientHash<Vector<2, Field>>([seed, 1]);
 }
 
+export pure circuit levelEntropy2(seed: Field): Field {
+  return transientHash<Vector<2, Field>>([seed, 2]);
+}
+
 export pure circuit nullifierFor(sk: Bytes<32>, tid: Uint<32>): Field {
   return transientHash<NulPayload>(NulPayload { domain: pad(32, "moonray:nul:v1"), sk: sk, tid: tid });
 }
@@ -72,15 +88,16 @@ export pure circuit scoreCommit(score: Uint<16>, nonce: Field): Field {
 }
 
 export pure circuit tierThreshold(tier: Uint<8>): Uint<16> {
-  return tier == 1 ? 20 : tier == 2 ? 40 : 50;
+  return tier == 1 ? 40 : tier == 2 ? 70 : 85;
 }
 
-// score = 10 * isolated + full-clear bonus of 5 * (4 - cutsUsed)
-export pure circuit scoreFor(isolated: Uint<8>, objectCount: Uint<8>, cutsUsed: Uint<8>): Uint<16> {
+// score = 10 * isolated + full-clear bonus of 5 * (4 - cutsUsed):
+// clearing with fewer cuts pays more (only possible on light days).
+export pure circuit scoreFor(isolated: Uint<8>, totalObjects: Uint<8>, cutsUsed: Uint<8>): Uint<16> {
   const base = ((10 as Uint<16>) * (isolated as Uint<16>)) as Uint<16>;
-  const bonus = (isolated == objectCount)
+  const bonus = (isolated == totalObjects
     ? ((cutsUsed == 0 ? 20 : cutsUsed == 1 ? 15 : cutsUsed == 2 ? 10 : 5) as Uint<16>)
-    : (0 as Uint<16>);
+    : (0 as Uint<16>)) as Uint<16>;
   return (base + bonus) as Uint<16>;
 }
 
@@ -116,22 +133,38 @@ pure circuit farInside(p: Uint<64>, n: Uint<64>, l2: Uint<64>, tolPx2: Uint<16>)
   return p > n && p * p + n * n > (2 as Uint<64>) * p * n + (tolPx2 as Uint<64>) * l2;
 }
 
-// select the hinted source line: board edge idx (0..7) or cut idx (0..2).
-pure circuit sourceLine(board: Vector<8, Pt>, cuts: Vector<3, Cut>, isCut: Boolean, idx: Uint<8>): [Pt, Pt] {
+// 7-bit jitter from an 8-bit limb: uniform [0,128), subtraction-safe.
+pure circuit j7(limb: Uint<8>): Uint<8> {
+  return (limb <= 127 ? limb : (limb - 128) as Uint<8>) as Uint<8>;
+}
+
+// select the hinted source line: concatenated board edges (A: 0..7, B: 8..14)
+// or cut idx (0..2).
+pure circuit sourceLine(
+  boardA: Vector<8, Pt>, boardB: Vector<7, Pt>, cuts: Vector<3, Cut>,
+  isCut: Boolean, idx: Uint<8>
+): [Pt, Pt] {
   return isCut
     ? (idx == 0 ? [cuts[0].a, cuts[0].b] : idx == 1 ? [cuts[1].a, cuts[1].b] : [cuts[2].a, cuts[2].b])
-    : (idx == 0 ? [board[0], board[1]]
-      : idx == 1 ? [board[1], board[2]]
-      : idx == 2 ? [board[2], board[3]]
-      : idx == 3 ? [board[3], board[4]]
-      : idx == 4 ? [board[4], board[5]]
-      : idx == 5 ? [board[5], board[6]]
-      : idx == 6 ? [board[6], board[7]]
-      : [board[7], board[0]]);
+    : (idx == 0 ? [boardA[0], boardA[1]]
+      : idx == 1 ? [boardA[1], boardA[2]]
+      : idx == 2 ? [boardA[2], boardA[3]]
+      : idx == 3 ? [boardA[3], boardA[4]]
+      : idx == 4 ? [boardA[4], boardA[5]]
+      : idx == 5 ? [boardA[5], boardA[6]]
+      : idx == 6 ? [boardA[6], boardA[7]]
+      : idx == 7 ? [boardA[7], boardA[0]]
+      : idx == 8 ? [boardB[0], boardB[1]]
+      : idx == 9 ? [boardB[1], boardB[2]]
+      : idx == 10 ? [boardB[2], boardB[3]]
+      : idx == 11 ? [boardB[3], boardB[4]]
+      : idx == 12 ? [boardB[4], boardB[5]]
+      : idx == 13 ? [boardB[5], boardB[6]]
+      : [boardB[6], boardB[0]]);
 }
 
 // select piece by (untrusted) index; callers must bound idx < pieceCount first.
-pure circuit pieceAt(pieces: Vector<8, Piece>, idx: Uint<8>): Piece {
+pure circuit pieceAt(pieces: Vector<11, Piece>, idx: Uint<8>): Piece {
   return idx == 0 ? pieces[0]
     : idx == 1 ? pieces[1]
     : idx == 2 ? pieces[2]
@@ -139,7 +172,10 @@ pure circuit pieceAt(pieces: Vector<8, Piece>, idx: Uint<8>): Piece {
     : idx == 4 ? pieces[4]
     : idx == 5 ? pieces[5]
     : idx == 6 ? pieces[6]
-    : pieces[7];
+    : idx == 7 ? pieces[7]
+    : idx == 8 ? pieces[8]
+    : idx == 9 ? pieces[9]
+    : pieces[10];
 }
 
 // shoelace P/N sums over the padded 11-vertex ring (padding repeats verts[0],
@@ -171,7 +207,7 @@ pure circuit shoelacePN(p: Piece): [Uint<64>, Uint<64>] {
   return [ap, an];
 }
 
-pure circuit boardShoelacePN(b: Vector<8, Pt>): [Uint<64>, Uint<64>] {
+pure circuit boardAShoelacePN(b: Vector<8, Pt>): [Uint<64>, Uint<64>] {
   const ap = ((b[0].x as Uint<64>) * (b[1].y as Uint<64>)
     + (b[1].x as Uint<64>) * (b[2].y as Uint<64>)
     + (b[2].x as Uint<64>) * (b[3].y as Uint<64>)
@@ -191,16 +227,34 @@ pure circuit boardShoelacePN(b: Vector<8, Pt>): [Uint<64>, Uint<64>] {
   return [ap, an];
 }
 
+pure circuit boardBShoelacePN(b: Vector<7, Pt>): [Uint<64>, Uint<64>] {
+  const ap = ((b[0].x as Uint<64>) * (b[1].y as Uint<64>)
+    + (b[1].x as Uint<64>) * (b[2].y as Uint<64>)
+    + (b[2].x as Uint<64>) * (b[3].y as Uint<64>)
+    + (b[3].x as Uint<64>) * (b[4].y as Uint<64>)
+    + (b[4].x as Uint<64>) * (b[5].y as Uint<64>)
+    + (b[5].x as Uint<64>) * (b[6].y as Uint<64>)
+    + (b[6].x as Uint<64>) * (b[0].y as Uint<64>)) as Uint<64>;
+  const an = ((b[0].y as Uint<64>) * (b[1].x as Uint<64>)
+    + (b[1].y as Uint<64>) * (b[2].x as Uint<64>)
+    + (b[2].y as Uint<64>) * (b[3].x as Uint<64>)
+    + (b[3].y as Uint<64>) * (b[4].x as Uint<64>)
+    + (b[4].y as Uint<64>) * (b[5].x as Uint<64>)
+    + (b[5].y as Uint<64>) * (b[6].x as Uint<64>)
+    + (b[6].y as Uint<64>) * (b[0].x as Uint<64>)) as Uint<64>;
+  return [ap, an];
+}
+
 // one piece edge: hint must be in range and both endpoints within 2px of the
 // hinted source line. Inactive (padding) edges are exempt.
 pure circuit checkEdge(
   va: Pt, vb: Pt, h: EdgeHint,
-  board: Vector<8, Pt>, cuts: Vector<3, Cut>, cutsUsed: Uint<8>,
+  boardA: Vector<8, Pt>, boardB: Vector<7, Pt>, cuts: Vector<3, Cut>, cutsUsed: Uint<8>,
   active: Boolean
 ): [] {
-  const hintOk = h.isCut ? h.idx < cutsUsed : h.idx < 8;
+  const hintOk = h.isCut ? h.idx < cutsUsed : h.idx < 15;
   assert(!active || hintOk, "edge hint out of range");
-  const st = sourceLine(board, cuts, h.isCut, h.idx);
+  const st = sourceLine(boardA, boardB, cuts, h.isCut, h.idx);
   const l2 = len2(st[0], st[1]);
   const pnA = crossPN(st[0], st[1], va);
   const pnB = crossPN(st[0], st[1], vb);
@@ -215,22 +269,33 @@ pure circuit checkInside(va: Pt, vb: Pt, obj: Pt, active: Boolean): [] {
   assert(!active || farInside(pn[0], pn[1], l2, 2025), "object not inside its piece");
 }
 
-// is object myIdx isolated? true iff no other active object claims the same piece.
-pure circuit isolatedOne(hints: Vector<6, Uint<8>>, mine: Uint<8>, myIdx: Uint<8>, objectCount: Uint<8>): Boolean {
+// is object myIdx isolated? true iff no other ACTIVE object claims its piece.
+pure circuit isolatedOne(
+  hints: Vector<14, Uint<8>>, actives: Vector<14, Boolean>,
+  mine: Uint<8>, myIdx: Uint<8>
+): Boolean {
   const collide = fold(
-    (acc, h) => [acc[0] || (acc[1] != myIdx && acc[1] < objectCount && h == mine), (acc[1] + 1) as Uint<8>],
+    (acc, h, act) => [acc[0] || (acc[1] != myIdx && act && h == mine), (acc[1] + 1) as Uint<8>],
     [false, 0 as Uint<8>],
-    hints);
+    hints, actives);
   return !collide[0];
 }
 
 // ---------- level generation (identical recipe in engine/src/levelgen.ts) ----------
 //
-// entropy = transientHash([seed, 1]); witness supplies (limbs, hi) with
-// entropy == hi*2^248 + sum(limbs[i]*256^i) and hi <= 114 (unique split).
-// Board: octagon template + 8-bit jitter per coordinate (convex for every
-// jitter combo by construction). Objects: 6 grid cells spaced 768 + jitter.
-export pure circuit buildLevelFrom(seed: Field, limbs: Vector<31, Uint<8>>, hi: Uint<7>): Level {
+// Two entropy streams (transientHash([seed,1]) / ([seed,2])), each split by
+// the witness into 31 base-256 limbs + hi with hi <= 114 (unique split).
+// Stream 1: board A vertex jitter (limbs 0..15), board B vertex jitter
+// (16..29), A center-x (30). Stream 2: object jitter (0..27), A center-y
+// (28), B center-x (29), B center-y (30) — plate positions drift daily.
+// Moonlet counts (3..7 each) ride the hi limbs. All jitter is 7-bit via j7,
+// which keeps both (irregular) boards convex for every jitter combo and
+// provably disjoint (worst-case separation stays >= 557px).
+export pure circuit buildLevelFrom(
+  seed: Field,
+  limbs: Vector<31, Uint<8>>, hi: Uint<7>,
+  limbs2: Vector<31, Uint<8>>, hi2: Uint<7>
+): Level {
   const entropy = levelEntropy(seed);
   const rec = fold(
     (acc, limb) => [acc[0] + (limb as Field) * acc[1], acc[1] * (256 as Field)],
@@ -239,26 +304,55 @@ export pure circuit buildLevelFrom(seed: Field, limbs: Vector<31, Uint<8>>, hi: 
   assert(hi <= 114, "seed hi limb out of range");
   assert(rec[0] + (hi as Field) * rec[1] == entropy, "seed limbs mismatch");
 
-  const board = [
-    Pt { x: (3444 + limbs[0]) as Uint<12>,  y: (2551 + limbs[1]) as Uint<12> },
-    Pt { x: (2551 + limbs[2]) as Uint<12>,  y: (3444 + limbs[3]) as Uint<12> },
-    Pt { x: (1289 + limbs[4]) as Uint<12>,  y: (3444 + limbs[5]) as Uint<12> },
-    Pt { x: (396 + limbs[6]) as Uint<12>,   y: (2551 + limbs[7]) as Uint<12> },
-    Pt { x: (396 + limbs[8]) as Uint<12>,   y: (1289 + limbs[9]) as Uint<12> },
-    Pt { x: (1289 + limbs[10]) as Uint<12>, y: (396 + limbs[11]) as Uint<12> },
-    Pt { x: (2551 + limbs[12]) as Uint<12>, y: (396 + limbs[13]) as Uint<12> },
-    Pt { x: (3444 + limbs[14]) as Uint<12>, y: (1289 + limbs[15]) as Uint<12> }
+  const entropyB = levelEntropy2(seed);
+  const recB = fold(
+    (acc, limb) => [acc[0] + (limb as Field) * acc[1], acc[1] * (256 as Field)],
+    [0 as Field, 1 as Field],
+    limbs2);
+  assert(hi2 <= 114, "seed hi2 limb out of range");
+  assert(recB[0] + (hi2 as Field) * recB[1] == entropyB, "seed limbs2 mismatch");
+
+  const boardA = [
+    Pt { x: (241 + j7(limbs[0]) + j7(limbs[30])) as Uint<12>, y: (2475 + j7(limbs[1]) + j7(limbs2[28])) as Uint<12> },
+    Pt { x: (609 + j7(limbs[2]) + j7(limbs[30])) as Uint<12>, y: (2086 + j7(limbs[3]) + j7(limbs2[28])) as Uint<12> },
+    Pt { x: (1239 + j7(limbs[4]) + j7(limbs[30])) as Uint<12>, y: (2044 + j7(limbs[5]) + j7(limbs2[28])) as Uint<12> },
+    Pt { x: (1683 + j7(limbs[6]) + j7(limbs[30])) as Uint<12>, y: (2382 + j7(limbs[7]) + j7(limbs2[28])) as Uint<12> },
+    Pt { x: (1956 + j7(limbs[8]) + j7(limbs[30])) as Uint<12>, y: (3231 + j7(limbs[9]) + j7(limbs2[28])) as Uint<12> },
+    Pt { x: (1430 + j7(limbs[10]) + j7(limbs[30])) as Uint<12>, y: (3751 + j7(limbs[11]) + j7(limbs2[28])) as Uint<12> },
+    Pt { x: (584 + j7(limbs[12]) + j7(limbs[30])) as Uint<12>, y: (3788 + j7(limbs[13]) + j7(limbs2[28])) as Uint<12> },
+    Pt { x: (94 + j7(limbs[14]) + j7(limbs[30])) as Uint<12>, y: (3433 + j7(limbs[15]) + j7(limbs2[28])) as Uint<12> }
   ];
+  const boardB = [
+    Pt { x: (2728 + j7(limbs[16]) + j7(limbs2[29])) as Uint<12>, y: (120 + j7(limbs[17]) + j7(limbs2[30])) as Uint<12> },
+    Pt { x: (3458 + j7(limbs[18]) + j7(limbs2[29])) as Uint<12>, y: (829 + j7(limbs[19]) + j7(limbs2[30])) as Uint<12> },
+    Pt { x: (3561 + j7(limbs[20]) + j7(limbs2[29])) as Uint<12>, y: (1412 + j7(limbs[21]) + j7(limbs2[30])) as Uint<12> },
+    Pt { x: (3227 + j7(limbs[22]) + j7(limbs2[29])) as Uint<12>, y: (1859 + j7(limbs[23]) + j7(limbs2[30])) as Uint<12> },
+    Pt { x: (2686 + j7(limbs[24]) + j7(limbs2[29])) as Uint<12>, y: (1948 + j7(limbs[25]) + j7(limbs2[30])) as Uint<12> },
+    Pt { x: (1788 + j7(limbs[26]) + j7(limbs2[29])) as Uint<12>, y: (1534 + j7(limbs[27]) + j7(limbs2[30])) as Uint<12> },
+    Pt { x: (1916 + j7(limbs[28]) + j7(limbs2[29])) as Uint<12>, y: (602 + j7(limbs[29]) + j7(limbs2[30])) as Uint<12> }
+  ];
+  // objects: A cells (center + spread 6-ring at 505) then B cells (center +
+  // spread 6-ring at 490); anchors = position - 64, jitter [0,128).
   const objects = [
-    Pt { x: (1152 + limbs[16]) as Uint<12>, y: (1536 + limbs[17]) as Uint<12> },
-    Pt { x: (1920 + limbs[18]) as Uint<12>, y: (1536 + limbs[19]) as Uint<12> },
-    Pt { x: (2688 + limbs[20]) as Uint<12>, y: (1536 + limbs[21]) as Uint<12> },
-    Pt { x: (1152 + limbs[22]) as Uint<12>, y: (2304 + limbs[23]) as Uint<12> },
-    Pt { x: (1920 + limbs[24]) as Uint<12>, y: (2304 + limbs[25]) as Uint<12> },
-    Pt { x: (2688 + limbs[26]) as Uint<12>, y: (2304 + limbs[27]) as Uint<12> }
+    Pt { x: (962 + j7(limbs2[0]) + j7(limbs[30])) as Uint<12>, y: (2752 + j7(limbs2[1]) + j7(limbs2[28])) as Uint<12> },
+    Pt { x: (1467 + j7(limbs2[2]) + j7(limbs[30])) as Uint<12>, y: (2752 + j7(limbs2[3]) + j7(limbs2[28])) as Uint<12> },
+    Pt { x: (710 + j7(limbs2[4]) + j7(limbs[30])) as Uint<12>, y: (3189 + j7(limbs2[5]) + j7(limbs2[28])) as Uint<12> },
+    Pt { x: (709 + j7(limbs2[6]) + j7(limbs[30])) as Uint<12>, y: (2315 + j7(limbs2[7]) + j7(limbs2[28])) as Uint<12> },
+    Pt { x: (1214 + j7(limbs2[8]) + j7(limbs[30])) as Uint<12>, y: (3189 + j7(limbs2[9]) + j7(limbs2[28])) as Uint<12> },
+    Pt { x: (457 + j7(limbs2[10]) + j7(limbs[30])) as Uint<12>, y: (2752 + j7(limbs2[11]) + j7(limbs2[28])) as Uint<12> },
+    Pt { x: (1214 + j7(limbs2[12]) + j7(limbs[30])) as Uint<12>, y: (2315 + j7(limbs2[13]) + j7(limbs2[28])) as Uint<12> },
+    Pt { x: (2822 + j7(limbs2[14]) + j7(limbs2[29])) as Uint<12>, y: (1202 + j7(limbs2[15]) + j7(limbs2[30])) as Uint<12> },
+    Pt { x: (3246 + j7(limbs2[16]) + j7(limbs2[29])) as Uint<12>, y: (1447 + j7(limbs2[17]) + j7(limbs2[30])) as Uint<12> },
+    Pt { x: (2398 + j7(limbs2[18]) + j7(limbs2[29])) as Uint<12>, y: (1447 + j7(limbs2[19]) + j7(limbs2[30])) as Uint<12> },
+    Pt { x: (2822 + j7(limbs2[20]) + j7(limbs2[29])) as Uint<12>, y: (712 + j7(limbs2[21]) + j7(limbs2[30])) as Uint<12> },
+    Pt { x: (2822 + j7(limbs2[22]) + j7(limbs2[29])) as Uint<12>, y: (1692 + j7(limbs2[23]) + j7(limbs2[30])) as Uint<12> },
+    Pt { x: (2398 + j7(limbs2[24]) + j7(limbs2[29])) as Uint<12>, y: (957 + j7(limbs2[25]) + j7(limbs2[30])) as Uint<12> },
+    Pt { x: (3246 + j7(limbs2[26]) + j7(limbs2[29])) as Uint<12>, y: (957 + j7(limbs2[27]) + j7(limbs2[30])) as Uint<12> }
   ];
-  const oc = (limbs[28] <= 85 ? 4 : limbs[28] <= 170 ? 5 : 6) as Uint<8>;
-  return Level { board: board, objects: objects, objectCount: oc };
+  // moonlet counts ride the hi limbs (uniform 0..114): 5 bands -> 3..7 each.
+  const ca = (hi <= 22 ? 3 : hi <= 45 ? 4 : hi <= 68 ? 5 : hi <= 91 ? 6 : 7) as Uint<8>;
+  const cb = (hi2 <= 22 ? 3 : hi2 <= 45 ? 4 : hi2 <= 68 ? 5 : hi2 <= 91 ? 6 : 7) as Uint<8>;
+  return Level { boardA: boardA, boardB: boardB, objects: objects, countA: ca, countB: cb };
 }
 
 // ---------- run verification: the assertion spec ----------
@@ -266,14 +360,14 @@ export pure circuit verifyRunPure(
   level: Level,
   cuts: Vector<3, Cut>,
   cutsUsed: Uint<8>,
-  pieces: Vector<8, Piece>,
+  pieces: Vector<11, Piece>,
   pieceCount: Uint<8>,
-  edgeHints: Vector<8, Vector<11, EdgeHint>>,
-  objectHints: Vector<6, Uint<8>>
+  edgeHints: Vector<11, Vector<11, EdgeHint>>,
+  objectHints: Vector<14, Uint<8>>
 ): Uint<16> {
-  // (1) bounds
+  // (1) bounds: two uncut boards are already 2 pieces.
   assert(cutsUsed <= 3, "too many cuts");
-  assert(pieceCount >= 1 && pieceCount <= 8, "bad piece count");
+  assert(pieceCount >= 2 && pieceCount <= 11, "bad piece count");
 
   // (1b) active cuts must span >= 512 on some axis: kills degenerate/near-
   // degenerate cuts whose colinearity check would otherwise be vacuous.
@@ -287,7 +381,7 @@ export pure circuit verifyRunPure(
 
   // (2) per-piece structure: vertCount bounds, canonical padding
   // (verts[k] == verts[0] for k >= vertCount), edge-source colinearity.
-  for (const p of 0..8) {
+  for (const p of 0..11) {
     const pActive = (p as Uint<8>) < pieceCount;
     const vc = pieces[p].vertCount;
     assert(!pActive || (vc >= 3 && vc <= 11), "bad piece vertex count");
@@ -297,15 +391,15 @@ export pure circuit verifyRunPure(
     }
     for (const e of 0..10) {
       const eActive = pActive && (e as Uint<8>) < vc;
-      checkEdge(pieces[p].verts[e], pieces[p].verts[e + 1], edgeHints[p][e], level.board, cuts, cutsUsed, eActive);
+      checkEdge(pieces[p].verts[e], pieces[p].verts[e + 1], edgeHints[p][e], level.boardA, level.boardB, cuts, cutsUsed, eActive);
     }
     const wrapActive = pActive && (10 as Uint<8>) < vc;
-    checkEdge(pieces[p].verts[10], pieces[p].verts[0], edgeHints[p][10], level.board, cuts, cutsUsed, wrapActive);
+    checkEdge(pieces[p].verts[10], pieces[p].verts[0], edgeHints[p][10], level.boardA, level.boardB, cuts, cutsUsed, wrapActive);
   }
 
-  // (3) orientation + (4) tiling: shoelace sums of active pieces vs board.
+  // (3) orientation + (4) tiling: shoelace sums of active pieces vs BOTH boards.
   const shoe = map((pc) => shoelacePN(pc), pieces);
-  for (const p of 0..8) {
+  for (const p of 0..11) {
     const pActive = (p as Uint<8>) < pieceCount;
     assert(!pActive || shoe[p][0] > shoe[p][1], "piece not CCW");
   }
@@ -317,13 +411,18 @@ export pure circuit verifyRunPure(
     ],
     [0 as Uint<64>, 0 as Uint<64>, 0 as Uint<8>],
     shoe);
-  const bpn = boardShoelacePN(level.board);
-  assert(sums[0] + bpn[1] <= bpn[0] + sums[1] + 32768, "pieces exceed board area");
-  assert(bpn[0] + sums[1] <= sums[0] + bpn[1] + 32768, "pieces leave a gap");
+  const bpnA = boardAShoelacePN(level.boardA);
+  const bpnB = boardBShoelacePN(level.boardB);
+  const bap = (bpnA[0] + bpnB[0]) as Uint<64>;
+  const ban = (bpnA[1] + bpnB[1]) as Uint<64>;
+  assert(sums[0] + ban <= bap + sums[1] + 32768, "pieces exceed board area");
+  assert(bap + sums[1] <= sums[0] + ban + 32768, "pieces leave a gap");
 
-  // (5) containment: every active object strictly inside its hinted piece.
-  for (const o of 0..6) {
-    const oActive = (o as Uint<8>) < level.objectCount;
+  // (5) containment: every ACTIVE object strictly inside its hinted piece.
+  // Objects 0..6 belong to board A (active iff idx < countA), 7..13 to board
+  // B (active iff idx < countB + 7; the +7 form avoids Uint underflow).
+  for (const o of 0..14) {
+    const oActive = (o as Uint<8>) < (o < 7 ? level.countA : (level.countB + 7) as Uint<8>);
     const h = objectHints[o];
     assert(!oActive || h < pieceCount, "object hint out of range");
     const pc = pieceAt(pieces, h);
@@ -336,16 +435,21 @@ export pure circuit verifyRunPure(
     checkInside(pc.verts[10], pc.verts[0], obj, wrapActive);
   }
 
-  // (6) isolation: object o is isolated iff no other active object claims
+  // (6) isolation: object o is isolated iff no other ACTIVE object claims
   // the same piece index.
-  const idx6 = [0 as Uint<8>, 1 as Uint<8>, 2 as Uint<8>, 3 as Uint<8>, 4 as Uint<8>, 5 as Uint<8>];
+  const idx14 = [0 as Uint<8>, 1 as Uint<8>, 2 as Uint<8>, 3 as Uint<8>, 4 as Uint<8>,
+    5 as Uint<8>, 6 as Uint<8>, 7 as Uint<8>, 8 as Uint<8>, 9 as Uint<8>,
+    10 as Uint<8>, 11 as Uint<8>, 12 as Uint<8>, 13 as Uint<8>];
+  const actives = map(
+    (i) => i < (i <= 6 ? level.countA : (level.countB + 7) as Uint<8>),
+    idx14);
   const flags = map(
-    (h, i) => (i < level.objectCount) && isolatedOne(objectHints, h, i, level.objectCount),
-    objectHints, idx6);
+    (h, i, act) => act && isolatedOne(objectHints, actives, h, i),
+    objectHints, idx14, actives);
   const isolated = fold((acc, f) => (f ? acc + 1 : acc) as Uint<8>, 0 as Uint<8>, flags);
 
   // (7) score
-  return scoreFor(isolated, level.objectCount, cutsUsed);
+  return scoreFor(isolated, (level.countA + level.countB) as Uint<8>, cutsUsed);
 }
 
 // ---------- admin ----------
@@ -368,7 +472,8 @@ export circuit submitRun(tid: Uint<32>): [] {
 
   // (1) deterministic level from the tournament seed, in-circuit
   const lh = seedLimbs();
-  const level = buildLevelFrom(t.seed, lh[0], lh[1]);
+  const lh2 = seedLimbs2();
+  const level = buildLevelFrom(t.seed, lh[0], lh[1], lh2[0], lh2[1]);
 
   // (2) geometry verification of the claimed partition -> score
   const score = verifyRunPure(level, runCuts(), runCutsUsed(), runPieces(), runPieceCount(), runEdgeHints(), runObjectHints());

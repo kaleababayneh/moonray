@@ -8,7 +8,7 @@
 import { MAX_CUTS, MAX_OBJECTS, MAX_PIECES, MAX_PIECE_VERTS } from './constants.js';
 import type { Pt } from './geometry.js';
 import { type SeedLimbs, splitEntropy } from './levelgen.js';
-import { assignObjects, type PlayState } from './slicer.js';
+import { assignObjects, claimedPieces, type PlayState } from './slicer.js';
 
 export interface BundlePt {
   x: bigint;
@@ -29,14 +29,16 @@ export interface BundleEdgeHint {
 
 /** Everything submitRun's witnesses read, in generated-contract value shapes. */
 export interface RunBundle {
-  seedLimbs: bigint[]; // 31
+  seedLimbs: bigint[]; // 31 (stream 1)
   seedHi: bigint;
+  seedLimbs2: bigint[]; // 31 (stream 2)
+  seedHi2: bigint;
   cuts: BundleCut[]; // exactly 3
   cutsUsed: bigint;
-  pieces: BundlePiece[]; // exactly 8
+  pieces: BundlePiece[]; // exactly 11 (retired first, then live, padded)
   pieceCount: bigint;
-  edgeHints: BundleEdgeHint[][]; // 8 x 11
-  objectHints: bigint[]; // 6
+  edgeHints: BundleEdgeHint[][]; // 11 x 11
+  objectHints: bigint[]; // 14 (slot-indexed, claimed-piece indices)
   scoreNonce: bigint;
   /** engine-side expected score (the circuit recomputes it independently). */
   expectedScore: number;
@@ -53,13 +55,16 @@ export class UnprovableRunError extends Error {}
  */
 export const buildRunBundle = (
   state: PlayState,
-  entropy: bigint,
+  entropy1: bigint,
+  entropy2: bigint,
   scoreNonce: bigint,
 ): RunBundle => {
-  const { limbs, hi }: SeedLimbs = splitEntropy(entropy);
+  const { limbs, hi }: SeedLimbs = splitEntropy(entropy1);
+  const { limbs: limbs2, hi: hi2 } = splitEntropy(entropy2);
 
-  if (state.pieces.length < 1 || state.pieces.length > MAX_PIECES) {
-    throw new UnprovableRunError(`piece count ${state.pieces.length} out of range`);
+  const claimed = claimedPieces(state);
+  if (claimed.length < 2 || claimed.length > MAX_PIECES) {
+    throw new UnprovableRunError(`claimed piece count ${claimed.length} out of range`);
   }
   if (state.cuts.length > MAX_CUTS) {
     throw new UnprovableRunError(`cut count ${state.cuts.length} out of range`);
@@ -74,7 +79,7 @@ export const buildRunBundle = (
   const pieces: BundlePiece[] = [];
   const edgeHints: BundleEdgeHint[][] = [];
   for (let p = 0; p < MAX_PIECES; p++) {
-    const piece = state.pieces[p];
+    const piece = claimed[p];
     if (!piece) {
       pieces.push({ verts: Array.from({ length: MAX_PIECE_VERTS }, zeroPt), vertCount: 0n });
       edgeHints.push(
@@ -101,26 +106,24 @@ export const buildRunBundle = (
   }
 
   const assignment = assignObjects(state);
-  const objectHints: bigint[] = [];
-  for (let o = 0; o < MAX_OBJECTS; o++) {
-    const pieceIdx = assignment.objectPiece[o];
-    if (o < state.level.objectCount) {
-      if (pieceIdx === undefined || pieceIdx < 0) {
-        throw new UnprovableRunError(`object ${o} is not inside any piece`);
-      }
-      objectHints.push(BigInt(pieceIdx));
-    } else {
-      objectHints.push(0n);
+  const objectHints: bigint[] = new Array(MAX_OBJECTS).fill(0n);
+  assignment.slots.forEach((slot, i) => {
+    const pieceIdx = assignment.objectPiece[i];
+    if (pieceIdx < 0) {
+      throw new UnprovableRunError(`object slot ${slot} is not inside any claimed piece`);
     }
-  }
+    objectHints[slot] = BigInt(pieceIdx);
+  });
 
   return {
     seedLimbs: [...limbs],
     seedHi: hi,
+    seedLimbs2: [...limbs2],
+    seedHi2: hi2,
     cuts,
     cutsUsed: BigInt(state.cuts.length),
     pieces,
-    pieceCount: BigInt(state.pieces.length),
+    pieceCount: BigInt(claimed.length),
     edgeHints,
     objectHints,
     scoreNonce,
@@ -138,11 +141,15 @@ export const nonceFromBytes = (bytes: Uint8Array): bigint => {
 
 /** Level for the circuit call, in generated value shape. */
 export const levelValue = (level: {
-  board: readonly Pt[];
+  boardA: readonly Pt[];
+  boardB: readonly Pt[];
   objects: readonly Pt[];
-  objectCount: number;
+  countA: number;
+  countB: number;
 }) => ({
-  board: level.board.map((v) => ({ x: v.x, y: v.y })),
+  boardA: level.boardA.map((v) => ({ x: v.x, y: v.y })),
+  boardB: level.boardB.map((v) => ({ x: v.x, y: v.y })),
   objects: level.objects.map((v) => ({ x: v.x, y: v.y })),
-  objectCount: BigInt(level.objectCount),
+  countA: BigInt(level.countA),
+  countB: BigInt(level.countB),
 });

@@ -2,9 +2,9 @@
  * End-to-end smoke test on the local stack, with REAL proofs via the local
  * proof server:
  *
- *   deploy -> create short tournament -> alice full-clear run (prove+submit)
+ *   deploy -> create short tournament -> alice searched run (prove+submit)
  *   -> bob 0-score run -> replay + tampered submissions rejected -> wait for
- *   reveal window -> both reveal -> ranking asserted -> alice claims Silver.
+ *   reveal window -> both reveal -> ranking asserted -> alice claims Bronze.
  *
  * Run: npm run e2e:local  (docker stack must be up: npm run stack:up)
  */
@@ -21,34 +21,60 @@ import { pureCircuits } from '@moonray/contract';
 import {
   applyCut,
   assignObjects,
-  levelFromEntropy,
+  levelFromEntropies,
   newGame,
   type PlayState,
   type Pt,
 } from '@moonray/engine';
 import { buildCliContext, providersFor, resolveNetwork, writeDeployment, ZK_CONFIG_PATH } from './providers.js';
 
-const GRID_CUTS: ReadonlyArray<readonly [Pt, Pt]> = [
-  [{ x: 200n, y: 2100n }, { x: 3900n, y: 2100n }],
-  [{ x: 1700n, y: 300n }, { x: 1700n, y: 3800n }],
-  [{ x: 2450n, y: 300n }, { x: 2450n, y: 3800n }],
-];
-
-const playFullClear = (seed: bigint): PlayState => {
-  const entropy = pureCircuits.levelEntropy(seed);
-  let state = newGame(levelFromEntropy(entropy));
-  for (const [a, b] of GRID_CUTS) {
-    const res = applyCut(state, a, b);
-    if (!res.ok) throw new Error(`scripted cut rejected: ${JSON.stringify(res.reason)}`);
-    state = res.state;
-  }
-  return state;
+const mulberry32 = (a: number) => () => {
+  a |= 0;
+  a = (a + 0x6d2b79f5) | 0;
+  let t = Math.imul(a ^ (a >>> 15), 1 | a);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 };
 
-const pickFourObjectSeed = (): bigint => {
+const levelOf = (seed: bigint) =>
+  levelFromEntropies(pureCircuits.levelEntropy(seed), pureCircuits.levelEntropy2(seed));
+
+/** Deterministic search for the best random 3-cut run on this seed. */
+const searchBestRun = (seed: bigint, rounds = 150): PlayState => {
+  const rnd = mulberry32(4242);
+  const gridPt = (): Pt => ({
+    x: BigInt(200 + Math.floor(rnd() * 3700)),
+    y: BigInt(200 + Math.floor(rnd() * 3700)),
+  });
+  let best: PlayState | null = null;
+  let bestScore = -1;
+  for (let r = 0; r < rounds; r++) {
+    let state = newGame(levelOf(seed));
+    for (let c = 0; c < 3; c++) {
+      for (let attempt = 0; attempt < 25; attempt++) {
+        const res = applyCut(state, gridPt(), gridPt());
+        if (res.ok) {
+          state = res.state;
+          break;
+        }
+      }
+    }
+    const score = assignObjects(state).score;
+    if (score > bestScore) {
+      bestScore = score;
+      best = state;
+    }
+  }
+  return best!;
+};
+
+/** A seed whose searched run reaches at least Bronze (>= 40). */
+const pickDemoSeed = (): { seed: bigint; run: PlayState; score: number } => {
   for (;;) {
     const seed = pickUsableSeed();
-    if (levelFromEntropy(pureCircuits.levelEntropy(seed)).objectCount === 4) return seed;
+    const run = searchBestRun(seed);
+    const score = assignObjects(run).score;
+    if (score >= 40) return { seed, run, score };
   }
 };
 
@@ -81,17 +107,18 @@ const main = async () => {
 
   console.log('== tournament ==');
   const tid = 100n;
-  const seed = pickFourObjectSeed();
+  const demo = pickDemoSeed();
+  const seed = demo.seed;
   const submitUntil = new Date(Date.now() + 180_000); // 3 min submit window
   const revealUntil = new Date(Date.now() + 30 * 60_000);
   await timed('createTournament', () => game.createTournament(tid, seed, submitUntil, revealUntil));
 
-  console.log('== alice: full-clear run ==');
-  const aliceState = playFullClear(seed);
-  const aliceScore = assignObjects(aliceState).score;
-  assert(aliceScore === 45, `engine scores the scripted full-clear at 45 (got ${aliceScore})`);
+  console.log(`== alice: searched run (${demo.score} pts) ==`);
+  const aliceState = demo.run;
+  const aliceScore = demo.score;
+  assert(aliceScore >= 40, `search found a Bronze-or-better run (got ${aliceScore})`);
   const pre = preflightRun(aliceState, seed);
-  assert(pre.ok && pre.score === 45, 'preflight matches engine score');
+  assert(pre.ok && pre.score === aliceScore, 'preflight matches engine score');
 
   const alice = await MoonraySlicer.join(
     providersFor(ctx, 'e2e-alice'),
@@ -111,8 +138,7 @@ const main = async () => {
     game.address,
     randomSecretKey(),
   );
-  const entropy = pureCircuits.levelEntropy(seed);
-  const bobState = newGame(levelFromEntropy(entropy));
+  const bobState = newGame(levelOf(seed));
   await timed('bob submitRun', () => bob.submitRun(tid, bobState, seed));
 
   console.log('== replay rejection ==');
@@ -127,7 +153,7 @@ const main = async () => {
   {
     // A run played against a DIFFERENT board, submitted for this tournament:
     // the seed-limb recomposition assert fires before any proof is made.
-    const cheatState = playFullClear(pickFourObjectSeed());
+    const cheatState = searchBestRun(pickUsableSeed());
     const cheatPre = preflightRun(cheatState, seed);
     assert(!cheatPre.ok, `preflight blocks a wrong-level run (${cheatPre.ok ? '' : cheatPre.reason})`);
   }
@@ -153,19 +179,22 @@ const main = async () => {
     const view = await fetchLedger(adminProviders, game.address);
     const ranking = view?.tournaments.find((t) => t.tid === tid)?.ranking ?? [];
     assert(ranking.length === 2, 'two revealed entries');
-    assert(ranking[0].score === 45 && ranking[1].score === 0, 'ranking is [45, 0]');
+    assert(
+      ranking[0].score === aliceScore && ranking[1].score === 0,
+      `ranking is [${aliceScore}, 0]`,
+    );
     const aliceNul = await alice.myNullifier(tid);
     assert(ranking[0].nullifier === aliceNul, 'alice recognises her own entry by nullifier');
   }
 
   console.log('== badge ==');
-  await timed('alice claimBadge Silver', () => alice.claimBadge(tid, 2));
+  await timed('alice claimBadge Bronze', () => alice.claimBadge(tid, 1));
   {
     const view = await fetchLedger(adminProviders, game.address);
     const aliceNul = await alice.myNullifier(tid);
     assert(
-      view?.badges.some((b) => b.nullifier === aliceNul && b.tier === 2) ?? false,
-      'Silver badge on-chain',
+      view?.badges.some((b) => b.nullifier === aliceNul && b.tier === 1) ?? false,
+      'Bronze badge on-chain',
     );
   }
 

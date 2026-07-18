@@ -1,9 +1,14 @@
 /**
- * The cut-splitting play state machine.
+ * The cut-splitting play state machine, with the collect/dissolve mechanic:
+ * a piece that ends up holding exactly one moonlet dissolves — the moonlet is
+ * collected and its piece RETIRES. Retired pieces are kept: the proof claims
+ * retired pieces + surviving pieces, which together still tile both boards
+ * exactly (every claimed piece is a disjoint union of cut-arrangement cells,
+ * so the total can never exceed MAX_PIECES = 11).
  *
- * Pieces carry per-edge provenance (board edge i | cut j), which makes the
- * circuit's edge hints free to extract. All functions are pure — the caller
- * (UI) keeps a history stack for undo/redo.
+ * Pieces carry per-edge provenance (concatenated board edge | cut j), which
+ * makes the circuit's edge hints free to extract. All functions are pure —
+ * the caller (UI) keeps a history stack for undo/redo.
  */
 
 import {
@@ -27,11 +32,12 @@ import {
   ptEq,
   strictlyInsideConvex,
 } from './geometry.js';
-import { activeObjects, type Level } from './levelgen.js';
+import { activeObjectEntries, objectActive, totalObjects, type Level } from './levelgen.js';
 
 export interface EdgeSource {
   readonly isCut: boolean;
-  readonly idx: number; // board edge 0..7 | cut 0..2
+  /** concatenated board edge (A: 0..7, B: 8..14) | cut 0..2 */
+  readonly idx: number;
 }
 
 export interface EnginePiece {
@@ -49,19 +55,33 @@ export interface Cut {
 export interface PlayState {
   readonly level: Level;
   readonly cuts: readonly Cut[];
+  /** live (still-on-field) pieces. */
   readonly pieces: readonly EnginePiece[];
+  /** dissolved pieces, in retirement order — claimed alongside live pieces. */
+  readonly retired: readonly EnginePiece[];
+  /** per level-object-slot (0..13): collected? (inactive slots stay false) */
+  readonly collected: readonly boolean[];
 }
 
 export type CutRejection =
   | { kind: 'missesBoard' }
   | { kind: 'tooShort' }
   | { kind: 'noCutsLeft' }
-  | { kind: 'tooCloseToObject'; objectIndex: number }
+  | { kind: 'tooCloseToObject'; objectSlot: number }
   | { kind: 'tooManyPieces' }
-  | { kind: 'tooManyVerts' };
+  | { kind: 'tooManyVerts' }
+  | { kind: 'grazesCorner' };
 
 export type CutResult =
-  | { ok: true; state: PlayState; cut: Cut }
+  | {
+      ok: true;
+      state: PlayState;
+      cut: Cut;
+      /** pieces that dissolved because this cut isolated their moonlet */
+      dissolved: EnginePiece[];
+      /** level-object slots collected by this cut */
+      collectedSlots: number[];
+    }
   | { ok: false; reason: CutRejection };
 
 export const newGame = (level: Level): PlayState => ({
@@ -69,10 +89,16 @@ export const newGame = (level: Level): PlayState => ({
   cuts: [],
   pieces: [
     {
-      verts: level.board,
-      sources: level.board.map((_, i) => ({ isCut: false, idx: i })),
+      verts: level.boardA,
+      sources: level.boardA.map((_, i) => ({ isCut: false, idx: i })),
+    },
+    {
+      verts: level.boardB,
+      sources: level.boardB.map((_, i) => ({ isCut: false, idx: 8 + i })),
     },
   ],
+  retired: [],
+  collected: level.objects.map(() => false),
 });
 
 /**
@@ -91,13 +117,20 @@ const axisSpanOk = (c: Cut): boolean => {
   return dx >= MIN_CUT_AXIS || dy >= MIN_CUT_AXIS;
 };
 
-/** Distance guardrail index: first object center within clearance of the cut, or -1. */
-export const cutTooCloseToObject = (level: Level, c: Cut): number => {
+/**
+ * Guardrail: first UNCOLLECTED active moonlet slot within clearance of the
+ * cut, or -1. Collected moonlets have left the field — their space is free.
+ */
+export const cutTooCloseToObject = (
+  level: Level,
+  c: Cut,
+  collected: readonly boolean[] = [],
+): number => {
   const clearance = BigInt(CUT_OBJECT_CLEARANCE_PX);
-  const objs = activeObjects(level);
-  for (let i = 0; i < objs.length; i++) {
-    const d = distToSegmentSq(c.a, c.b, objs[i]);
-    if (d.num < clearance * clearance * d.den) return i;
+  for (const { slot, pt } of activeObjectEntries(level)) {
+    if (collected[slot]) continue;
+    const d = distToSegmentSq(c.a, c.b, pt);
+    if (d.num < clearance * clearance * d.den) return slot;
   }
   return -1;
 };
@@ -122,7 +155,6 @@ const straddles = (piece: EnginePiece, c: Cut): boolean => {
 const intersect = (p: Pt, q: Pt, c: Cut): Pt => {
   const d1 = cross(c.a, c.b, p);
   const d2 = cross(c.a, c.b, q);
-  // d1, d2 have strictly opposite signs; t = d1 / (d1 - d2) is in (0,1).
   const den = d1 - d2;
   return {
     x: p.x + divRound((q.x - p.x) * d1, den),
@@ -130,13 +162,24 @@ const intersect = (p: Pt, q: Pt, c: Cut): Pt => {
   };
 };
 
+/** Cuts through (or within a few px of) a polygon vertex produce rounded
+ * intersection points a pixel or two apart — a degenerate edge whose "line"
+ * is numerically meaningless. Merge ring vertices closer than this. */
+const MERGE_EPS2 = 36n; // 6px squared
+
+const nearEq = (a: Pt, b: Pt): boolean => {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return dx * dx + dy * dy <= MERGE_EPS2;
+};
+
 const dedupeRing = (ring: Pt[]): Pt[] => {
   const out: Pt[] = [];
   for (const v of ring) {
-    if (out.length > 0 && ptEq(out[out.length - 1], v)) continue;
+    if (out.length > 0 && nearEq(out[out.length - 1], v)) continue;
     out.push(v);
   }
-  while (out.length > 1 && ptEq(out[0], out[out.length - 1])) out.pop();
+  while (out.length > 1 && nearEq(out[0], out[out.length - 1])) out.pop();
   return out;
 };
 
@@ -182,10 +225,9 @@ const rebuildSources = (
   return out;
 };
 
-/**
- * Split one convex piece by the cut line. Returns 1 or 2 pieces.
- * cutIdx is the index this cut will occupy in state.cuts.
- */
+/** Split one convex piece by the cut line. Returns 1 or 2 pieces.
+ * Throws SourceTrackingError when the rounded geometry cannot be proven
+ * (cut grazing a vertex) — the caller rejects the cut. */
 const splitPiece = (
   piece: EnginePiece,
   c: Cut,
@@ -223,35 +265,84 @@ const splitPiece = (
   return { pieces: [left, right], split: true };
 };
 
+/** Uncollected active moonlet slots strictly inside a piece. */
+const inhabitants = (
+  level: Level,
+  collected: readonly boolean[],
+  piece: EnginePiece,
+): number[] => {
+  const out: number[] = [];
+  for (const { slot, pt } of activeObjectEntries(level)) {
+    if (collected[slot]) continue;
+    if (strictlyInsideConvex(piece.verts, pt)) out.push(slot);
+  }
+  return out;
+};
+
 /** Apply a drawn cut. Pure — returns a new state or a rejection. */
 export const applyCut = (state: PlayState, rawA: Pt, rawB: Pt): CutResult => {
   if (state.cuts.length >= MAX_CUTS) return { ok: false, reason: { kind: 'noCutsLeft' } };
   const cut = normalizeCut(rawA, rawB);
   if (!cut) return { ok: false, reason: { kind: 'missesBoard' } };
   if (!axisSpanOk(cut)) return { ok: false, reason: { kind: 'tooShort' } };
-  const closeObj = cutTooCloseToObject(state.level, cut);
-  if (closeObj >= 0) {
-    return { ok: false, reason: { kind: 'tooCloseToObject', objectIndex: closeObj } };
+  const closeSlot = cutTooCloseToObject(state.level, cut, state.collected);
+  if (closeSlot >= 0) {
+    return { ok: false, reason: { kind: 'tooCloseToObject', objectSlot: closeSlot } };
   }
 
   const cutIdx = state.cuts.length;
-  const nextPieces: EnginePiece[] = [];
+  const afterSplit: EnginePiece[] = [];
   let anySplit = false;
-  for (const piece of state.pieces) {
-    const { pieces, split } = splitPiece(piece, cut, cutIdx);
-    nextPieces.push(...pieces);
-    anySplit = anySplit || split;
+  try {
+    for (const piece of state.pieces) {
+      const { pieces, split } = splitPiece(piece, cut, cutIdx);
+      afterSplit.push(...pieces);
+      anySplit = anySplit || split;
+    }
+  } catch (err) {
+    if (err instanceof SourceTrackingError) {
+      return { ok: false, reason: { kind: 'grazesCorner' } };
+    }
+    throw err;
   }
   if (!anySplit) return { ok: false, reason: { kind: 'missesBoard' } };
-  if (nextPieces.length > MAX_PIECES) return { ok: false, reason: { kind: 'tooManyPieces' } };
-  if (nextPieces.some((p) => p.verts.length > MAX_PIECE_VERTS)) {
+
+  // collect/dissolve: pieces now holding exactly one moonlet retire
+  const collected = [...state.collected];
+  const collectedSlots: number[] = [];
+  const dissolved: EnginePiece[] = [];
+  const keep: EnginePiece[] = [];
+  for (const piece of afterSplit) {
+    const inside = inhabitants(state.level, state.collected, piece);
+    if (inside.length === 1) {
+      collected[inside[0]] = true;
+      collectedSlots.push(inside[0]);
+      dissolved.push(piece);
+    } else {
+      keep.push(piece);
+    }
+  }
+
+  const retired = [...state.retired, ...dissolved];
+  if (retired.length + keep.length > MAX_PIECES) {
+    return { ok: false, reason: { kind: 'tooManyPieces' } };
+  }
+  if ([...retired, ...keep].some((p) => p.verts.length > MAX_PIECE_VERTS)) {
     return { ok: false, reason: { kind: 'tooManyVerts' } };
   }
 
   return {
     ok: true,
     cut,
-    state: { level: state.level, cuts: [...state.cuts, cut], pieces: nextPieces },
+    dissolved,
+    collectedSlots,
+    state: {
+      level: state.level,
+      cuts: [...state.cuts, cut],
+      pieces: keep,
+      retired,
+      collected,
+    },
   };
 };
 
@@ -259,37 +350,54 @@ export const applyCut = (state: PlayState, rawA: Pt, rawB: Pt): CutResult => {
 export const previewCut = (state: PlayState, rawA: Pt, rawB: Pt): CutResult =>
   applyCut(state, rawA, rawB);
 
+/** All claimed pieces, retirement order first — the proof's piece list. */
+export const claimedPieces = (state: PlayState): EnginePiece[] => [
+  ...state.retired,
+  ...state.pieces,
+];
+
 export interface Assignment {
-  /** piece index per active object, or -1 if not strictly inside any piece. */
+  /** slot index (0..13) per active object, aligned with the arrays below. */
+  readonly slots: readonly number[];
+  /** claimed-piece index per active object (retired first, then live); -1 if none. */
   readonly objectPiece: readonly number[];
-  /** true per active object iff alone in its piece. */
+  /** true per active object iff collected or alone in its live piece. */
   readonly isolated: readonly boolean[];
   readonly isolatedCount: number;
+  readonly totalObjects: number;
   readonly fullClear: boolean;
   readonly score: number;
 }
 
-/** Assign objects to pieces and compute the live score (mirrors scoreFor). */
+/** Assign objects to claimed pieces and compute the live score (mirrors scoreFor). */
 export const assignObjects = (state: PlayState): Assignment => {
-  const objs = activeObjects(state.level);
-  const objectPiece = objs.map((o) => {
-    for (let p = 0; p < state.pieces.length; p++) {
-      if (strictlyInsideConvex(state.pieces[p].verts, o)) return p;
+  const entries = activeObjectEntries(state.level);
+  const claimed = claimedPieces(state);
+  const objectPiece = entries.map(({ pt }) => {
+    for (let p = 0; p < claimed.length; p++) {
+      if (strictlyInsideConvex(claimed[p].verts, pt)) return p;
     }
     return -1;
   });
+  // isolation counts occupancy among ACTIVE objects across claimed pieces:
+  // a collected moonlet sits alone in its retired piece by construction.
   const isolated = objectPiece.map(
     (p, i) => p >= 0 && objectPiece.every((q, j) => j === i || q !== p),
   );
   const isolatedCount = isolated.filter(Boolean).length;
-  const fullClear = isolatedCount === objs.length;
-  const cutsUsed = state.cuts.length;
-  const bonus = fullClear ? 5 * (4 - cutsUsed) : 0;
+  const total = totalObjects(state.level);
+  const fullClear = isolatedCount === total;
+  const bonus = fullClear ? 5 * (MAX_CUTS + 1 - state.cuts.length) : 0;
   return {
+    slots: entries.map((e) => e.slot),
     objectPiece,
     isolated,
     isolatedCount,
+    totalObjects: total,
     fullClear,
     score: 10 * isolatedCount + bonus,
   };
 };
+
+/** Is a given level-object slot active in this level? (re-export convenience) */
+export { objectActive };

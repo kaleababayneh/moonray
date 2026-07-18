@@ -5,7 +5,12 @@
  */
 
 import type { Assignment, EnginePiece, PlayState, Pt } from '@moonray/engine';
-import { GRID, OBJECT_RADIUS_PX, CUT_OBJECT_CLEARANCE_PX, activeObjects } from '@moonray/engine';
+import {
+  GRID,
+  OBJECT_RADIUS_PX,
+  CUT_OBJECT_CLEARANCE_PX,
+  activeObjectEntries,
+} from '@moonray/engine';
 import type { DragPreview } from './useSlicerGame';
 
 export interface Viewport {
@@ -153,19 +158,31 @@ export const render = (
   }
   ctx.globalAlpha = 1;
 
-  const singlePiece = play.pieces.length === 1;
+  const uncut = play.cuts.length === 0;
   const splitAge = now - rs.lastSplitAt;
   const pop = splitAge < 320 ? (1 - splitAge / 320) * 7 : 0;
-  const inset = singlePiece ? 0 : 4.5 + pop;
+  const inset = uncut ? 0 : 4.5 + pop;
 
-  // pieces
+  // retired (dissolved) pieces: fading ghost outlines
+  play.retired.forEach((piece) => {
+    piecePath(ctx, v, piece, 2);
+    ctx.strokeStyle = pal.orbIsolated;
+    ctx.globalAlpha = 0.16;
+    ctx.setLineDash([5, 7]);
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  });
+
+  // live pieces
   play.pieces.forEach((piece, i) => {
     piecePath(ctx, v, piece, inset);
     ctx.fillStyle = pal.pieceFill[i % pal.pieceFill.length];
     ctx.fill();
-    ctx.strokeStyle = singlePiece ? pal.boardEdge : pal.pieceEdge;
-    ctx.lineWidth = singlePiece ? 2.4 : 1.4;
-    if (singlePiece) {
+    ctx.strokeStyle = uncut ? pal.boardEdge : pal.pieceEdge;
+    ctx.lineWidth = uncut ? 2.4 : 1.4;
+    if (uncut) {
       ctx.shadowColor = pal.boardEdge;
       ctx.shadowBlur = 18;
     }
@@ -189,14 +206,31 @@ export const render = (
 
   // objects (moonlets)
   const scale = pxPerGrid(v);
-  const objs = activeObjects(play.level);
-  objs.forEach((o, i) => {
+  const entries = activeObjectEntries(play.level);
+  entries.forEach(({ slot, pt: o }, i) => {
     const q = gridToCanvas(v, { x: N(o.x), y: N(o.y) });
     const r = OBJECT_RADIUS_PX * scale;
+    const collected = play.collected[slot];
     const isolated = assignment.isolated[i];
     const breathing = 1 + 0.05 * Math.sin(now / 700 + i * 1.7);
 
-    // clearance ring while dragging
+    if (collected) {
+      // collected moonlet: a quiet golden spark, space is free again
+      ctx.globalAlpha = 0.55;
+      ctx.strokeStyle = pal.orbIsolated;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.arc(q.x, q.y, r * 0.55, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = pal.orbIsolated;
+      ctx.beginPath();
+      ctx.arc(q.x, q.y, r * 0.18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      return;
+    }
+
+    // clearance ring while dragging (uncollected only)
     if (preview) {
       ctx.strokeStyle = 'rgba(255,107,129,0.25)';
       ctx.setLineDash([4, 5]);

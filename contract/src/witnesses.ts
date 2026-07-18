@@ -20,6 +20,8 @@ import type {
 export interface StagedRun {
   readonly seedLimbs: bigint[];
   readonly seedHi: bigint;
+  readonly seedLimbs2: bigint[];
+  readonly seedHi2: bigint;
   readonly cuts: Cut[];
   readonly cutsUsed: bigint;
   readonly pieces: Piece[];
@@ -74,6 +76,10 @@ export const witnesses: Witnesses<SlicerPrivateState> = {
   seedLimbs: ({ privateState }: Ctx): [SlicerPrivateState, [bigint[], bigint]] => [
     privateState,
     [staged(privateState).seedLimbs, staged(privateState).seedHi],
+  ],
+  seedLimbs2: ({ privateState }: Ctx): [SlicerPrivateState, [bigint[], bigint]] => [
+    privateState,
+    [staged(privateState).seedLimbs2, staged(privateState).seedHi2],
   ],
   runCuts: ({ privateState }: Ctx): [SlicerPrivateState, Cut[]] => [
     privateState,

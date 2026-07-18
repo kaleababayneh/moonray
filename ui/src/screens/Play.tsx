@@ -95,8 +95,9 @@ export const Play = ({ theme }: Props) => {
     return () => window.removeEventListener('keydown', onKey);
   }, [game]);
 
-  const objectsTotal = game.state.level.objectCount;
+  const objectsTotal = game.assignment.totalObjects;
   const isolated = game.assignment.isolatedCount;
+  const collectedCount = game.state.collected.filter(Boolean).length;
 
   const hint = (() => {
     if (game.lastRejection) return { cls: 'danger', text: rejectionText(game.lastRejection) };
@@ -106,10 +107,13 @@ export const Play = ({ theme }: Props) => {
         text: `Full clear with ${game.state.cuts.length} cut${game.state.cuts.length > 1 ? 's' : ''}! Fewer cuts = bigger bonus.`,
       };
     if (game.state.cuts.length === 0)
-      return { cls: '', text: 'Drag a line across the board to slice it. Isolate every glowing moonlet in its own piece.' };
+      return {
+        cls: '',
+        text: 'Two survey plates, one blade. Drag a line across the field — pieces holding a single moonlet dissolve and collect it.',
+      };
     return {
       cls: '',
-      text: `${isolated}/${objectsTotal} moonlets isolated. ${game.cutsLeft} cut${game.cutsLeft === 1 ? '' : 's'} left.`,
+      text: `${collectedCount} collected · ${isolated}/${objectsTotal} isolated. ${game.cutsLeft} cut${game.cutsLeft === 1 ? '' : 's'} left.`,
     };
   })();
 

@@ -10,7 +10,7 @@ import {
   assignObjects,
   type Assignment,
   type CutRejection,
-  levelFromEntropy,
+  levelFromEntropies,
   newGame,
   normalizeCut,
   type PlayState,
@@ -28,6 +28,11 @@ export interface DragPreview {
   wouldSplit: boolean;
 }
 
+export interface CollectEvent {
+  slots: number[];
+  at: number;
+}
+
 export interface SlicerGame {
   seed: bigint;
   state: PlayState;
@@ -38,6 +43,7 @@ export interface SlicerGame {
   preview: DragPreview | null;
   lastRejection: CutRejection | null;
   splitFlash: number; // increments on every successful cut (for animations)
+  lastCollect: CollectEvent | null;
   beginDrag(p: Pt): void;
   moveDrag(p: Pt): void;
   endDrag(p: Pt): boolean;
@@ -48,16 +54,20 @@ export interface SlicerGame {
 }
 
 export const useSlicerGame = (seed: bigint): SlicerGame => {
-  const initial = useMemo(() => {
-    const entropy = pureCircuits.levelEntropy(seed);
-    return newGame(levelFromEntropy(entropy));
-  }, [seed]);
+  const initial = useMemo(
+    () =>
+      newGame(
+        levelFromEntropies(pureCircuits.levelEntropy(seed), pureCircuits.levelEntropy2(seed)),
+      ),
+    [seed],
+  );
 
   const [history, setHistory] = useState<PlayState[]>([initial]);
   const [cursor, setCursor] = useState(0);
   const [preview, setPreview] = useState<DragPreview | null>(null);
   const [lastRejection, setLastRejection] = useState<CutRejection | null>(null);
   const [splitFlash, setSplitFlash] = useState(0);
+  const [lastCollect, setLastCollect] = useState<CollectEvent | null>(null);
   const dragStart = useRef<Pt | null>(null);
 
   // seed change -> fresh game
@@ -125,6 +135,9 @@ export const useSlicerGame = (seed: bigint): SlicerGame => {
       setCursor(next.length - 1);
       setLastRejection(null);
       setSplitFlash((n) => n + 1);
+      if (res.collectedSlots.length > 0) {
+        setLastCollect({ slots: res.collectedSlots, at: performance.now() });
+      }
       return true;
     },
     [state, history, cursor],
@@ -157,6 +170,7 @@ export const useSlicerGame = (seed: bigint): SlicerGame => {
     preview,
     lastRejection,
     splitFlash,
+    lastCollect,
     beginDrag,
     moveDrag,
     endDrag,
@@ -178,8 +192,10 @@ export const rejectionText = (r: CutRejection): string => {
     case 'tooCloseToObject':
       return 'Too close to a moonlet — leave it some breathing room (that keeps the proof honest).';
     case 'tooManyPieces':
-      return 'That would shatter the board into too many pieces (max 8).';
+      return 'That would shatter the field into too many pieces (max 11).';
     case 'tooManyVerts':
       return 'That corner is already too intricate for the circuit — try a different angle.';
+    case 'grazesCorner':
+      return 'That slice grazes a corner too closely to prove — shift it a touch.';
   }
 };
