@@ -6,7 +6,7 @@
 
 import { useState } from 'react'
 import type { TournamentView } from '@moonray/api'
-import { Btn, fmtClock, Icon } from '../components/Hud'
+import { Btn, fmtClock, Icon, WalletChip } from '../components/Hud'
 import { MoonrayMark } from '../components/MoonrayMark'
 import { opId } from '../components/TitleScreen'
 import { Identicon, shortNul } from '../components/Identicon'
@@ -75,10 +75,22 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
           <MoonrayMark size={24} />
           MOONRAY
         </span>
-        <Btn onClick={onBack}>
-          <span>Return to the field</span>
-          <Icon name="arrow" />
-        </Btn>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <WalletChip
+            connected={g.connected}
+            connecting={g.connecting}
+            walletName={g.walletName}
+            disabled={!g.contractAddress}
+            onClick={() => {
+              if (g.connected) g.disconnect()
+              else void g.connect().catch(() => undefined)
+            }}
+          />
+          <Btn onClick={onBack}>
+            <span>Return to the field</span>
+            <Icon name="arrow" />
+          </Btn>
+        </span>
       </header>
 
       <div className="manual-head rise" style={{ '--d': '60ms' } as React.CSSProperties}>
