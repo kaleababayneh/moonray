@@ -9,3 +9,4 @@ cli/deployment*.json
 *.log
 .DS_Store
 ui/public/deployment.json
+cli/.state/
