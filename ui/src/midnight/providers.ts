@@ -22,6 +22,7 @@ import {
   type SignatureEnabled,
 } from '@midnight-ntwrk/ledger-v8';
 import { fromHex, toHex } from '@midnight-ntwrk/midnight-js-utils';
+import { ContractState } from '@midnight-ntwrk/compact-runtime';
 import {
   createPrivateStateProvider,
   type SlicerCircuitKeys,
@@ -31,6 +32,37 @@ import type { RunRecord, SlicerPrivateState } from '@moonray/contract';
 import { LS_RUNS, LS_SECRET_KEY, type UiNetworkConfig } from '../config';
 
 const balancedTxHex = new WeakMap<object, string>();
+
+/**
+ * Hosted preview/preprod indexers have a GraphQL bug with `offset: null` in
+ * latest-state queries, which the SDK's plain queryContractState() hits.
+ * Wrap the provider so config-less latest reads go through a direct query
+ * (the documented 1AM workaround). Local indexers don't need it.
+ */
+const patchPublicDataProvider = <T extends { queryContractState: (a: string, c?: unknown) => Promise<unknown> }>(
+  base: T,
+  indexerUri: string,
+): T => ({
+  ...base,
+  async queryContractState(contractAddress: string, config?: unknown) {
+    if (config) return base.queryContractState(contractAddress, config);
+    const res = await fetch(indexerUri, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        query: `query LATEST($address: HexEncoded!) { contractAction(address: $address) { state } }`,
+        variables: { address: contractAddress },
+      }),
+    });
+    if (!res.ok) throw new Error(`indexer HTTP ${res.status}`);
+    const payload = await res.json();
+    if (payload.errors?.length) {
+      throw new Error(payload.errors.map((e: { message: string }) => e.message).join('; '));
+    }
+    const action = payload.data?.contractAction;
+    return action ? ContractState.deserialize(hexToBytes(action.state)) : null;
+  },
+});
 
 const hexToBytes = (h: string) => new Uint8Array(h.match(/.{2}/g)?.map((b) => parseInt(b, 16)) ?? []);
 const bytesToHex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
@@ -108,14 +140,18 @@ export async function buildBrowserProviders(opts: BuildProvidersOptions): Promis
     },
   };
 
+  const indexerUri = walletConfig.indexerUri ?? config.indexer;
+  const indexerWsUri = walletConfig.indexerWsUri ?? config.indexerWS;
+  const basePublic = indexerPublicDataProvider(indexerUri, indexerWsUri);
+
   return {
     privateStateProvider: createPrivateStateProvider<'MoonraySlicerState', SlicerPrivateState>(
       localStorageHooks(),
     ) as never,
-    publicDataProvider: indexerPublicDataProvider(
-      walletConfig.indexerUri ?? config.indexer,
-      walletConfig.indexerWsUri ?? config.indexerWS,
-    ),
+    publicDataProvider:
+      config.networkId === 'undeployed'
+        ? basePublic
+        : (patchPublicDataProvider(basePublic as never, indexerUri) as never),
     zkConfigProvider,
     proofProvider,
     walletProvider,
@@ -123,7 +159,13 @@ export async function buildBrowserProviders(opts: BuildProvidersOptions): Promis
   };
 }
 
-/** Read-only providers (leaderboard without a wallet). */
-export const readonlyProviders = (config: UiNetworkConfig) => ({
-  publicDataProvider: indexerPublicDataProvider(config.indexer, config.indexerWS),
-});
+/** Read-only providers (ranking without a wallet). */
+export const readonlyProviders = (config: UiNetworkConfig) => {
+  const base = indexerPublicDataProvider(config.indexer, config.indexerWS);
+  return {
+    publicDataProvider:
+      config.networkId === 'undeployed'
+        ? base
+        : (patchPublicDataProvider(base as never, config.indexer) as never),
+  };
+};

@@ -1799,6 +1799,23 @@ select.tourney-pick {
   margin-top: 14px;
 }
 
+/* wallet connect error, floated below the title controls */
+.title-error {
+  position: fixed;
+  top: 64px;
+  right: 20px;
+  z-index: 2;
+  max-width: 340px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 96, 133, 0.35);
+  border-radius: 12px;
+  background: rgba(20, 8, 16, 0.85);
+  font: 500 10px/1.6 var(--mono);
+  letter-spacing: 0.04em;
+  color: var(--rose);
+  text-align: right;
+}
+
 /* title countdown — sits between the wordmark and the tagline */
 .title-timer {
   display: flex;

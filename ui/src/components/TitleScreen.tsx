@@ -164,6 +164,7 @@ export function TitleScreen({
           <Icon name={muted ? 'soundOff' : 'sound'} />
         </Glyph>
       </div>
+      {g.connectError && <p className="title-error">{g.connectError}</p>}
 
       <div className="hero rise" style={{ '--d': '0ms' } as React.CSSProperties}>
         <span className="hero-halo" aria-hidden="true" />
