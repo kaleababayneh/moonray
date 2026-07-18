@@ -20,15 +20,16 @@ export const NETWORKS: Record<NetworkName, NetworkConfig> = {
   },
   preprod: {
     networkId: 'preprod',
-    indexer: 'https://indexer.preprod.midnight.network/api/v3/graphql',
-    indexerWS: 'wss://indexer.preprod.midnight.network/api/v3/graphql/ws',
+    // NOTE: the hosted preprod indexer moved to /api/v4 — v1/v3 paths 308 -> 404.
+    indexer: 'https://indexer.preprod.midnight.network/api/v4/graphql',
+    indexerWS: 'wss://indexer.preprod.midnight.network/api/v4/graphql/ws',
     node: 'https://rpc.preprod.midnight.network',
     proofServer: 'http://127.0.0.1:6300',
   },
   preview: {
     networkId: 'preview',
-    indexer: 'https://indexer.preview.midnight.network/api/v3/graphql',
-    indexerWS: 'wss://indexer.preview.midnight.network/api/v3/graphql/ws',
+    indexer: 'https://indexer.preview.midnight.network/api/v4/graphql',
+    indexerWS: 'wss://indexer.preview.midnight.network/api/v4/graphql/ws',
     node: 'https://rpc.preview.midnight.network',
     proofServer: 'http://127.0.0.1:6300',
   },

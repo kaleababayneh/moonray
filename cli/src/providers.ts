@@ -5,6 +5,7 @@
  * and reveal nonces survive process restarts.
  */
 
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,6 +35,19 @@ const currentDir = path.dirname(fileURLToPath(import.meta.url));
 export const ZK_CONFIG_PATH = path.resolve(currentDir, '..', '..', 'contract', 'src', 'managed', 'slicer');
 
 const STATE_DIR = path.resolve(currentDir, '..', '.state');
+
+/** Persistent deployment-wallet seed per network (git-ignored, 0600). */
+export const seedFileFor = (network: NetworkName): string =>
+  path.join(STATE_DIR, `${network}-wallet-seed`);
+
+export const loadOrCreateSeed = (network: NetworkName): string => {
+  const file = seedFileFor(network);
+  if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8').trim();
+  const seed = crypto.randomBytes(32).toString('hex');
+  fs.mkdirSync(STATE_DIR, { recursive: true });
+  fs.writeFileSync(file, seed, { mode: 0o600 });
+  return seed;
+};
 
 interface StoredState {
   secretKeyHex: string;
@@ -87,10 +101,7 @@ export const buildCliContext = async (network: NetworkName, seed?: string): Prom
     seed ??
     (network === 'local'
       ? GENESIS_MINT_WALLET_SEED
-      : process.env.WALLET_SEED ??
-        (() => {
-          throw new Error('set WALLET_SEED for non-local networks');
-        })());
+      : process.env.WALLET_SEED ?? loadOrCreateSeed(network));
 
   const walletContext = await buildWalletAndWaitForFunds(config, walletSeed);
   const walletAndMidnightProvider = await createWalletAndMidnightProvider(walletContext);
