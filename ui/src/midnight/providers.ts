@@ -10,6 +10,7 @@
  */
 
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
+import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 import { FetchZkConfigProvider } from '@midnight-ntwrk/midnight-js-fetch-zk-config-provider';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { httpClientProofProvider } from '@midnight-ntwrk/midnight-js-http-client-proof-provider';
@@ -100,6 +101,7 @@ export interface BuildProvidersOptions {
 
 export async function buildBrowserProviders(opts: BuildProvidersOptions): Promise<SlicerProviders> {
   const { api, config } = opts;
+  setNetworkId(config.networkId);
   const walletConfig = await api.getConfiguration();
   const shieldedAddresses = await api.getShieldedAddresses();
 
@@ -161,6 +163,7 @@ export async function buildBrowserProviders(opts: BuildProvidersOptions): Promis
 
 /** Read-only providers (ranking without a wallet). */
 export const readonlyProviders = (config: UiNetworkConfig) => {
+  setNetworkId(config.networkId);
   const base = indexerPublicDataProvider(config.indexer, config.indexerWS);
   return {
     publicDataProvider:
