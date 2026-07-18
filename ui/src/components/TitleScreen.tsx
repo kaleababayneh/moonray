@@ -192,7 +192,7 @@ export function TitleScreen({
           className="menu-item rise"
           style={{ '--d': '300ms' } as React.CSSProperties}
           onClick={onDaily}
-          disabled={!tournament || !open}
+          disabled={!tournament || !open || myRun !== undefined}
         >
           <span className="menu-label">Daily operation</span>
           <span className="menu-sub">{dailySub}</span>
