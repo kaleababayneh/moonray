@@ -254,7 +254,7 @@ function Shell() {
         ? {
             kind: 'danger',
             lead: 'Out of trajectories',
-            text: `${isolated} of ${total} collected — undo a cut${canSeal ? ', or seal what you have' : ''}.`,
+            text: `${isolated} of ${total} collected — undo a cut${canSeal ? ', or prove what you have' : ''}.`,
           }
         : cuts > 0
           ? {
@@ -334,9 +334,9 @@ function Shell() {
               <small className={alreadyPlayed ? 'is-sealed' : ''}>
                 {daily
                   ? alreadyPlayed
-                    ? `SEALED${myRun ? ` · ${myRun.score} PTS` : ''} · REVEALS AFTER ${fmtClock(countdown)}`
-                    : `SEALS CLOSE IN ${fmtClock(countdown)}`
-                  : 'EXPEDITION · OFF-CHAIN'}
+                    ? `PROVEN${myRun ? ` · ${myRun.score} PTS` : ''} · REVEALS AFTER ${fmtClock(countdown)}`
+                    : `PROOFS CLOSE IN ${fmtClock(countdown)}`
+                  : 'PRACTICE · OFF-CHAIN'}
               </small>
             </div>
             <div className="hud-corner">
@@ -415,9 +415,9 @@ function Shell() {
                 disabled={!canSeal}
                 title={
                   alreadyPlayed
-                    ? 'Already sealed for this operation'
+                    ? 'Already proven for this operation'
                     : !g.connected
-                      ? 'Link a wallet to seal'
+                      ? 'Link a wallet to prove'
                       : preflight && !preflight.ok
                         ? `Not provable yet: ${preflight.reason}`
                         : cuts === 0
@@ -426,7 +426,7 @@ function Shell() {
                 }
               >
                 <Icon name="seal" />
-                <span>{alreadyPlayed ? 'SEALED' : `SEAL RUN · ${game.assignment.score} PTS`}</span>
+                <span>{alreadyPlayed ? 'PROVEN' : `PROVE RUN · ${game.assignment.score} PTS`}</span>
               </button>
             ) : (
               <button

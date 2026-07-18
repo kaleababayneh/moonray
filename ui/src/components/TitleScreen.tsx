@@ -137,9 +137,9 @@ export function TitleScreen({
     : !tournament
       ? 'NO ACTIVE OPERATION ON-CHAIN'
       : !open
-        ? `${opId(tournament.tid)} · SEALS CLOSED`
+        ? `${opId(tournament.tid)} · PROOFS CLOSED`
         : myRun
-          ? `${opId(tournament.tid)} · SEALED ${myRun.score} PTS`
+          ? `${opId(tournament.tid)} · PROVEN ${myRun.score} PTS`
           : `${opId(tournament.tid)} · A FRESH FIELD EVERY HOUR`
 
   // the countdown under the wordmark: current field's close, else next hour
@@ -179,8 +179,8 @@ export function TitleScreen({
         <b>{fmtClock(timerSecs)}</b>
       </div>
       <p className="title-tag rise" style={{ '--d': '200ms' } as React.CSSProperties}>
-        Slice the plates of moonlight. Set every moonlet free — and seal your score with a
-        zero-knowledge proof on Midnight.
+        Slice the plates of moonlight. Set every moonlet free — and prove your score with
+        zero knowledge on Midnight.
       </p>
 
       <nav className="menu" aria-label="Main menu">
@@ -194,7 +194,7 @@ export function TitleScreen({
           <span className="menu-sub">{dailySub}</span>
         </button>
         <button className="menu-item rise" style={{ '--d': '370ms' } as React.CSSProperties} onClick={onExpedition}>
-          <span className="menu-label">Expedition</span>
+          <span className="menu-label">Practice</span>
           <span className="menu-sub">ENDLESS PROCEDURAL FIELDS · OFF-CHAIN</span>
         </button>
         <button className="menu-item rise" style={{ '--d': '440ms' } as React.CSSProperties} onClick={onRanking}>
@@ -220,7 +220,7 @@ export function TitleScreen({
         {myRun && (
           <>
             <i aria-hidden="true" />
-            <span>SEALED {pad4(myRun.score)}</span>
+            <span>PROVEN {pad4(myRun.score)}</span>
           </>
         )}
       </footer>

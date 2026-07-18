@@ -126,7 +126,7 @@ export function WinOverlay({
   const [copied, setCopied] = useState(false)
 
   const share = async () => {
-    const text = `MOONRAY ${operationId} — ${tier ? tier.name.toUpperCase() + ' · ' : ''}${score} pts · ${cuts}/${MAX_CUTS} cuts · sealed with a ZK proof on Midnight`
+    const text = `MOONRAY ${operationId} — ${tier ? tier.name.toUpperCase() + ' · ' : ''}${score} pts · ${cuts}/${MAX_CUTS} cuts · proven in zero knowledge on Midnight`
     try {
       await navigator.clipboard.writeText(text)
       setCopied(true)
@@ -198,11 +198,11 @@ export function WinOverlay({
         {seal.canSeal ? (
           <Btn variant="gold" onClick={seal.onSeal} autoFocus>
             <Icon name="seal" />
-            <span>Seal this run</span>
+            <span>Prove this run</span>
           </Btn>
         ) : (
           <Btn variant="gold" onClick={onNext} autoFocus>
-            <span>{daily ? 'Start expedition' : 'Next sector'}</span>
+            <span>{daily ? 'Start practice' : 'Next sector'}</span>
             <Icon name="arrow" />
           </Btn>
         )}
@@ -210,12 +210,12 @@ export function WinOverlay({
 
       {seal.sealedScore != null && (
         <small className="ceremony-next rise" style={{ '--d': '520ms' } as React.CSSProperties}>
-          SEALED ON-CHAIN · {pad4(seal.sealedScore)} PTS
+          PROVEN ON-CHAIN · {pad4(seal.sealedScore)} PTS
         </small>
       )}
       {daily && (
         <small className="ceremony-next rise" style={{ '--d': '540ms' } as React.CSSProperties}>
-          SEALS CLOSE IN {fmtClock(countdown)}
+          PROOFS CLOSE IN {fmtClock(countdown)}
         </small>
       )}
     </Backdrop>
@@ -268,7 +268,7 @@ export function GameOverOverlay({
       </div>
       <small className="over-best rise" style={{ '--d': '380ms' } as React.CSSProperties}>
         PERSONAL BEST {pad4(best)}
-        {seal.sealedScore != null ? ` · SEALED ${pad4(seal.sealedScore)}` : ''}
+        {seal.sealedScore != null ? ` · PROVEN ${pad4(seal.sealedScore)}` : ''}
       </small>
 
       <div className="ceremony-actions rise" style={{ '--d': '450ms' } as React.CSSProperties}>
@@ -279,11 +279,11 @@ export function GameOverOverlay({
         {seal.canSeal && (
           <Btn variant="gold" onClick={seal.onSeal}>
             <Icon name="seal" />
-            <span>Seal {score} pts</span>
+            <span>Prove {score} pts</span>
           </Btn>
         )}
         <Btn variant={seal.canSeal ? 'ghost' : 'gold'} onClick={onNext} autoFocus={!seal.canSeal}>
-          <span>{daily ? 'Start expedition' : 'New sector'}</span>
+          <span>{daily ? 'Start practice' : 'New sector'}</span>
           <Icon name="arrow" />
         </Btn>
       </div>
@@ -296,7 +296,7 @@ const SEAL_STEPS: { key: SealStage; label: string }[] = [
   { key: 'preflight', label: 'CHECKING RUN AGAINST THE CIRCUIT' },
   { key: 'witnesses', label: 'STAGING WITNESSES · CUTS STAY LOCAL' },
   { key: 'proving', label: 'GENERATING ZERO-KNOWLEDGE PROOF' },
-  { key: 'submitting', label: 'SUBMITTING SEALED COMMITMENT' },
+  { key: 'submitting', label: 'SUBMITTING HIDDEN COMMITMENT' },
 ]
 const ORDER: SealStage[] = ['preflight', 'witnesses', 'proving', 'submitting', 'sealed']
 
@@ -306,10 +306,10 @@ export function SealCeremony({ seal, onClose }: { seal: SealProgress; onClose: (
   const busy = seal.stage !== 'sealed' && seal.stage !== 'error'
 
   return (
-    <Backdrop label="Sealing your run" onClose={busy ? undefined : onClose} dust={seal.stage === 'sealed'}>
+    <Backdrop label="Proving your run" onClose={busy ? undefined : onClose} dust={seal.stage === 'sealed'}>
       {seal.stage === 'error' ? (
         <>
-          <span className="ceremony-kicker ceremony-kicker--over rise">SEAL REFUSED</span>
+          <span className="ceremony-kicker ceremony-kicker--over rise">PROOF REFUSED</span>
           <div className="seal-error rise" style={{ '--d': '80ms' } as React.CSSProperties}>
             {seal.detail}
           </div>
@@ -321,7 +321,7 @@ export function SealCeremony({ seal, onClose }: { seal: SealProgress; onClose: (
         </>
       ) : seal.stage === 'sealed' ? (
         <>
-          <span className="ceremony-kicker rise">SCORE SEALED</span>
+          <span className="ceremony-kicker rise">SCORE PROVEN</span>
           <div className="tier-emblem-wrap rise" style={{ '--d': '90ms' } as React.CSSProperties}>
             <div className="tier-emblem">
               <span className="tier-rays" aria-hidden="true" />
@@ -329,13 +329,13 @@ export function SealCeremony({ seal, onClose }: { seal: SealProgress; onClose: (
             </div>
           </div>
           <div className="ceremony-score rise" style={{ '--d': '180ms' } as React.CSSProperties}>
-            <span>SEALED UNDER AN ANONYMOUS NULLIFIER</span>
+            <span>PROVEN UNDER AN ANONYMOUS NULLIFIER</span>
             <strong>{pad4(seal.score ?? 0)}</strong>
           </div>
           <div className="chain-facts gold rise" style={{ '--d': '260ms' } as React.CSSProperties}>
             <div>
               <b>ON-CHAIN</b>
-              <span>a nullifier and a sealed commitment — nothing else</span>
+              <span>a nullifier and a hidden commitment — nothing else</span>
             </div>
             <div>
               <b>NEVER LEAVES</b>
@@ -351,7 +351,7 @@ export function SealCeremony({ seal, onClose }: { seal: SealProgress; onClose: (
         </>
       ) : (
         <>
-          <span className="ceremony-kicker rise">SEALING RUN</span>
+          <span className="ceremony-kicker rise">PROVING RUN</span>
           <div className="seal-steps">
             {SEAL_STEPS.map((s, i) => (
               <div key={s.key} className={`seal-step ${i < idx ? 'is-done' : i === idx ? 'is-active' : ''}`}>

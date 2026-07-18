@@ -39,7 +39,7 @@ function Vault() {
         if (
           !window.confirm(
             'This vault holds a DIFFERENT identity than the one on this device. Importing replaces ' +
-              'your current secret key — any un-backed-up sealed runs become unrevealable. Continue?',
+              'your current secret key — any un-backed-up proven runs become unrevealable. Continue?',
           )
         ) {
           return
@@ -97,7 +97,7 @@ export function Manual({ onBack }: { onBack: () => void }) {
         <p>
           Two survey plates share the field. Cuts are straight lines that cross everything in their
           path — one good trajectory can slice both plates at once. Every player in the world gets
-          the same field each day; only zero-knowledge keeps it fair.
+          the same field each hour; only zero-knowledge keeps it fair.
         </p>
       </div>
 
@@ -191,7 +191,7 @@ export function Manual({ onBack }: { onBack: () => void }) {
             ))}
           </div>
           <p style={{ marginTop: 12 }}>
-            Ranks can be claimed on-chain as badges — a proof that your sealed score clears the
+            Ranks can be claimed on-chain as badges — a proof that your hidden score clears the
             threshold, without ever revealing the number.
           </p>
         </article>
@@ -228,7 +228,7 @@ export function Manual({ onBack }: { onBack: () => void }) {
           <span className="hud-label">THE PROOF</span>
           <h2>What the chain learns</h2>
           <p>
-            Sealing a run generates a zero-knowledge proof — verified by Midnight consensus, not a
+            Submitting a run generates a zero-knowledge proof — verified by Midnight consensus, not a
             server — that your hidden cuts are valid for today's field and score what you claim.
           </p>
           <div className="disc-rows">
@@ -260,7 +260,7 @@ export function Manual({ onBack }: { onBack: () => void }) {
           <h2>Back up your reveals</h2>
           <p>
             Your secret key and per-operation reveal nonces live only in this browser. Lose them
-            and sealed scores can never be revealed or turned into badges.
+            and proven scores can never be revealed or turned into badges.
           </p>
           <Vault />
         </article>

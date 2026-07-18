@@ -58,7 +58,7 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
     setMsg(null)
     try {
       await g.claimBadge(t.tid, tier)
-      setMsg('HONOUR CLAIMED — YOUR EXACT SCORE REMAINS SEALED FOREVER.')
+      setMsg('HONOUR CLAIMED — YOUR EXACT SCORE REMAINS HIDDEN FOREVER.')
     } catch (err) {
       setMsg(`CLAIM FAILED: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
@@ -90,9 +90,9 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
         <span className="hud-label">RANKING</span>
         <h1>Ranking</h1>
         <p>
-          Scores stay sealed while an operation runs — the chain knows only that entries exist.
-          When the seals open, operators choose: reveal the number, or claim an honour and keep it
-          hidden forever.
+          Scores stay hidden while an operation runs — the chain knows only that proofs exist.
+          When the reveal window opens, operators choose: reveal the number, or claim an honour
+          and keep it hidden forever.
         </p>
       </div>
 
@@ -114,13 +114,13 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
         {phase && (
           <span className={`phase-chip is-${phase}`}>
             {phase === 'open'
-              ? `SEALS CLOSE IN ${fmtClock(Math.max(0, (t?.submitUntil ?? 0) - nowSec))}`
+              ? `PROOFS CLOSE IN ${fmtClock(Math.max(0, (t?.submitUntil ?? 0) - nowSec))}`
               : phase === 'reveal'
                 ? `REVEALS CLOSE IN ${fmtClock(Math.max(0, (t?.revealUntil ?? 0) - nowSec))}`
                 : 'CLOSED'}
           </span>
         )}
-        <span className="phase-chip">{g.ledger?.sealedCommits.size ?? 0} SEALED</span>
+        <span className="phase-chip">{g.ledger?.sealedCommits.size ?? 0} PROVEN</span>
         {inReveal && myRun && !iRevealed && (
           <Btn variant="gold" onClick={() => void reveal()} disabled={busy !== null}>
             <Icon name="ledger" />
@@ -141,7 +141,7 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
           <div className="rank-rows">
             {t == null || t.ranking.length === 0 ? (
               <div className="ledger-empty">
-                {phase === 'open' ? 'NOTHING REVEALED — SEALS STILL CLOSED' : 'NOTHING REVEALED YET'}
+                {phase === 'open' ? 'NOTHING REVEALED — THE FIELD IS STILL OPEN' : 'NOTHING REVEALED YET'}
               </div>
             ) : (
               t.ranking.map((r, i) => {
@@ -196,9 +196,9 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
                         !g.connected
                           ? 'Link a wallet first'
                           : !myRun
-                            ? 'Seal a run in the daily first'
+                            ? 'Prove a run in the hourly first'
                             : !have
-                              ? `Your sealed score (${myRun.score}) is below this honour`
+                              ? `Your proven score (${myRun.score}) is below this honour`
                               : undefined
                       }
                     >
@@ -232,7 +232,7 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
             )}
           </div>
           <p className="archive-note">
-            AN HONOUR IS A ZERO-KNOWLEDGE PROOF THAT A SEALED SCORE CLEARS THE THRESHOLD. THE
+            AN HONOUR IS A ZERO-KNOWLEDGE PROOF THAT A HIDDEN SCORE CLEARS THE THRESHOLD. THE
             NUMBER ITSELF IS NEVER DERIVABLE.
           </p>
         </article>
