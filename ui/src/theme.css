@@ -2058,3 +2058,10 @@ input.deploy-pass {
   font-style: normal;
   color: var(--rose);
 }
+
+/* your sealed-but-unrevealed leaderboard entry */
+.ledger-row.is-pending {
+  opacity: 0.72;
+  border: 1px dashed var(--line-2);
+  border-radius: 12px;
+}

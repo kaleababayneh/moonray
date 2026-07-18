@@ -161,6 +161,21 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
         <article className="sheet rise" style={{ '--d': '180ms' } as React.CSSProperties}>
           <span className="hud-label">REVEALED RANKING</span>
           <div className="rank-rows">
+            {myRun && !iRevealed && myNul !== null && (
+              <div className="ledger-row is-me is-pending">
+                <span className="ledger-rank">··</span>
+                <Identicon value={myNul} size={30} />
+                <div className="ledger-id">
+                  <em>{nickname || 'you'} — sealed, not yet revealed</em>
+                  <small>
+                    {g.walletAddress
+                      ? `${g.walletAddress.slice(0, 18)}…${g.walletAddress.slice(-6)}`.toUpperCase()
+                      : shortNul(myNul).toUpperCase()}
+                  </small>
+                </div>
+                <b className="ledger-score">{myRun.score}</b>
+              </div>
+            )}
             {t == null || t.ranking.length === 0 ? (
               <div className="ledger-empty">
                 {phase === 'open' ? 'NOTHING REVEALED — THE FIELD IS STILL OPEN' : 'NOTHING REVEALED YET'}
