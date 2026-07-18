@@ -114,6 +114,14 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
+  // Ops created before the daily-tid convention carry hour-scale ids that
+  // would render as far-future dates — hide them (daily ids stay < 100000
+  // until the year 2243).
+  const saneLedger = (v: LedgerView): LedgerView => ({
+    ...v,
+    tournaments: v.tournaments.filter((t) => t.tid < 100_000n),
+  });
+
   // live ledger (read-only path works without a wallet)
   useEffect(() => {
     if (!deploymentAddress) return;
@@ -123,13 +131,13 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     // initial one-shot fetch for fast paint, then subscribe
     fetchLedger(ro as never, deploymentAddress)
       .then((v) => {
-        if (v && !cancelled) setLedger(v);
+        if (v && !cancelled) setLedger(saneLedger(v));
       })
       .catch((e) => setLedgerError(String(e)));
     try {
       sub = watchLedger(ro as never, deploymentAddress).subscribe({
         next: (v) => {
-          setLedger(v);
+          setLedger(saneLedger(v));
           setLedgerError(null);
         },
         error: (e) => setLedgerError(String(e)),
@@ -139,7 +147,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     }
     const poll = setInterval(() => {
       fetchLedger(ro as never, deploymentAddress)
-        .then((v) => v && setLedger(v))
+        .then((v) => v && setLedger(saneLedger(v)))
         .catch(() => undefined);
     }, 15_000);
     return () => {

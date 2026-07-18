@@ -205,7 +205,7 @@ export function TitleScreen({
         <button className="menu-item rise" style={{ '--d': '440ms' } as React.CSSProperties} onClick={onRanking}>
           <span className="menu-label">Ranking</span>
           <span className="menu-sub">
-            {sealedCount} SEALED · {revealedCount} REVEALED · {badgeCount} HONOURS
+            {sealedCount} PROVEN · {revealedCount} REVEALED · {badgeCount} HONOURS
           </span>
         </button>
         <button className="menu-item rise" style={{ '--d': '510ms' } as React.CSSProperties} onClick={onManual}>
