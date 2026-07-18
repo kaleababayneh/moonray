@@ -10,7 +10,7 @@ import { TIERS } from '@moonray/engine'
 import { Btn, fmtClock, Icon } from '../components/Hud'
 import { MoonrayMark } from '../components/MoonrayMark'
 import { Identicon, shortNul } from '../components/Identicon'
-import { LS_DISPLAY_NAMES } from '../config'
+import { LS_CALLSIGN, LS_DISPLAY_NAMES } from '../config'
 import { useGame } from '../midnight/GameContext'
 
 const loadNames = (): Record<string, string> => {
@@ -24,6 +24,12 @@ const loadNames = (): Record<string, string> => {
 export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number }) {
   const g = useGame()
   const [names, setNames] = useState(loadNames)
+  const [callsign, setCallsignState] = useState(() => localStorage.getItem(LS_CALLSIGN) ?? '')
+  const setCallsign = (v: string) => {
+    setCallsignState(v)
+    if (v) localStorage.setItem(LS_CALLSIGN, v)
+    else localStorage.removeItem(LS_CALLSIGN)
+  }
   const tournaments = g.ledger?.tournaments ?? []
   const [selected, setSelected] = useState<bigint | null>(null)
   const t: TournamentView | null = tournaments.find((x) => x.tid === selected) ?? tournaments[0] ?? null
@@ -121,6 +127,16 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
           </span>
         )}
         <span className="phase-chip">{g.ledger?.sealedCommits.size ?? 0} PROVEN</span>
+        {g.connected && (
+          <input
+            className="callsign-input"
+            placeholder="CALLSIGN"
+            maxLength={18}
+            value={callsign}
+            onChange={(e) => setCallsign(e.target.value)}
+            aria-label="Callsign shown beside your entries"
+          />
+        )}
         {inReveal && myRun && !iRevealed && (
           <Btn variant="gold" onClick={() => void reveal()} disabled={busy !== null}>
             <Icon name="ledger" />
@@ -154,10 +170,10 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
                     <div className="ledger-id">
                       {mine ? (
                         <input
-                          placeholder="you — add a local name"
+                          placeholder={callsign || 'you — add a name'}
                           value={name ?? ''}
                           onChange={(e) => setName(r.nullifier, e.target.value)}
-                          aria-label="Local display name for your entry"
+                          aria-label="Display name for your entry"
                         />
                       ) : (
                         <em>{name ?? 'anonymous operator'}</em>
@@ -171,8 +187,8 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
             )}
           </div>
           <p className="archive-note">
-            NAMES ARE LOCAL LABELS ON THIS DEVICE. ON-CHAIN, EVERY ENTRY IS A NULLIFIER — YOU
-            RECOGNISE YOURS BECAUSE ONLY YOUR KEY DERIVES IT.
+            YOUR CALLSIGN AND NAMES ARE LABELS ON THIS DEVICE. ON-CHAIN, EVERY ENTRY IS A
+            NULLIFIER — YOU RECOGNISE YOURS BECAUSE ONLY YOUR KEY DERIVES IT.
           </p>
         </article>
 
@@ -222,7 +238,7 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
                     <i className={`rank-medal rank-medal--${(tier?.name ?? 'bronze').toLowerCase()}`} aria-hidden="true" />
                     <Identicon value={b.nullifier} size={30} />
                     <div className="ledger-id">
-                      <em>{mine ? 'you' : 'anonymous operator'}</em>
+                      <em>{mine ? callsign || 'you' : 'anonymous operator'}</em>
                       <small>{shortNul(b.nullifier).toUpperCase()}</small>
                     </div>
                     <b className="ledger-score">{tier?.name.toUpperCase()}</b>

@@ -291,6 +291,11 @@ export function Manual({ onBack }: { onBack: () => void }) {
               <span>{g.useLocalProver ? 'Use wallet prover' : 'Use local prover'}</span>
             </Btn>
           </div>
+          <p style={{ marginTop: 10 }}>
+            The run proof needs a 68 MB proving key — more than the wallet&apos;s messaging channel
+            accepts — so proving defaults to the local proof server on :6300. The wallet still
+            balances, pays and submits.
+          </p>
         </article>
       </div>
     </section>

@@ -2015,3 +2015,24 @@ select.tourney-pick {
 .deploy-back:hover {
   color: var(--ink);
 }
+
+/* callsign — local leaderboard label */
+input.callsign-input {
+  height: 34px;
+  width: 150px;
+  padding: 0 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--chip-bg);
+  color: var(--gold-hot);
+  font: 500 10.5px var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+input.callsign-input::placeholder {
+  color: var(--ink-faint);
+}
+input.callsign-input:focus {
+  outline: none;
+  border-color: var(--gold);
+}

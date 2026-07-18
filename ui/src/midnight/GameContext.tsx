@@ -31,7 +31,7 @@ import {
   UI_NETWORKS,
   type UiNetworkConfig,
 } from '../config';
-import { connectWallet, forgetWalletSession, restoreWalletSession } from './wallet';
+import { connectWallet, forgetWalletSession, restoreWalletSession, type WalletSession } from './wallet';
 import { buildBrowserProviders, loadOrCreateSecretKey, readonlyProviders } from './providers';
 
 export type SealStage =
@@ -92,11 +92,14 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
   const [connectError, setConnectError] = useState<string | null>(null);
   const [ledger, setLedger] = useState<LedgerView | null>(null);
   const [ledgerError, setLedgerError] = useState<string | null>(null);
-  const [useLocalProver, setUseLocalProver] = useState(false);
+  // The wallet prover cannot take submitRun's 68 MB proving key through the
+  // extension messaging channel ("Payload too large"), so local is the default.
+  const [useLocalProver, setUseLocalProver] = useState(true);
   const [seal, setSeal] = useState<SealProgress>({ stage: 'idle' });
 
   const gameRef = useRef<MoonraySlicer | null>(null);
   const providersRef = useRef<SlicerProviders | null>(null);
+  const sessionRef = useRef<WalletSession | null>(null);
   const secretKey = useMemo(loadOrCreateSecretKey, []);
 
   // deployment discovery
@@ -162,6 +165,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     setConnectError(null);
     try {
       const session = await connectWallet(networkConfig.networkId);
+      sessionRef.current = session;
       const providers = await buildBrowserProviders({
         api: session.api,
         config: networkConfig,
@@ -184,6 +188,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     restoreWalletSession(networkConfig.networkId)
       .then(async (session) => {
         if (!session) return;
+        sessionRef.current = session;
         const providers = await buildBrowserProviders({
           api: session.api,
           config: networkConfig,
@@ -197,10 +202,32 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deploymentAddress]);
 
+  // flipping the prover applies immediately to a live session
+  useEffect(() => {
+    const session = sessionRef.current;
+    if (!session) return;
+    let cancelled = false;
+    (async () => {
+      const providers = await buildBrowserProviders({
+        api: session.api,
+        config: networkConfig,
+        useLocalProver,
+      });
+      if (cancelled) return;
+      providersRef.current = providers;
+      await join(providers);
+    })().catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [useLocalProver]);
+
   const disconnect = useCallback(() => {
     forgetWalletSession();
     gameRef.current = null;
     providersRef.current = null;
+    sessionRef.current = null;
     setWalletName(null);
   }, []);
 
