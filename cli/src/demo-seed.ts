@@ -90,8 +90,6 @@ const main = async () => {
     console.log('  alice revealed');
     await bob.revealScore(tid);
     console.log('  bob revealed');
-    await alice.claimBadge(tid, 1);
-    console.log('  alice claimed Bronze');
   } catch (err) {
     // Long idles can leave the wallet's dust selection stale (node 1010/104).
     console.error(`  reveal step failed (${String(err).slice(0, 90)}...)`);

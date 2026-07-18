@@ -34,7 +34,7 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
   const myRun = t ? g.myRuns()[t.tid.toString()] : undefined
   const iRevealed = myNul !== null && (t?.ranking ?? []).some((r) => r.nullifier === myNul)
   const phase = t == null ? null : nowSec < t.submitUntil ? 'open' : nowSec < t.revealUntil ? 'reveal' : 'closed'
-  const inReveal = phase === 'reveal'
+  const canReveal = phase === 'open' || phase === 'reveal'
 
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
@@ -97,8 +97,8 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
         <span className="hud-label">RANKING</span>
         <h1>Ranking</h1>
         <p>
-          Scores stay hidden while an operation runs — the chain knows only that proofs exist.
-          When the reveal window opens, operators choose whether to reveal the number.
+          Scores stay hidden until their operator says otherwise — the chain knows only that
+          proofs exist. Reveal your number whenever you choose, or keep it hidden forever.
         </p>
       </div>
 
@@ -127,7 +127,7 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
           </span>
         )}
         <span className="phase-chip">{g.ledger?.sealedCommits.size ?? 0} PROVEN</span>
-        {inReveal && myRun && !iRevealed && (
+        {canReveal && myRun && !iRevealed && (
           <Btn variant="gold" onClick={() => void reveal()} disabled={busy !== null}>
             <Icon name="ledger" />
             <span>{busy === 'reveal' ? 'Revealing…' : `Reveal my ${myRun.score} pts`}</span>

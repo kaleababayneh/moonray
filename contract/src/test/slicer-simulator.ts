@@ -131,8 +131,4 @@ export class SlicerSimulator {
   revealScore(tid: bigint, score: bigint, nonce: bigint): void {
     this.apply(this.contract.impureCircuits.revealScore(this.circuitContext, tid, score, nonce));
   }
-
-  claimBadge(tid: bigint, tier: bigint, score: bigint, nonce: bigint): void {
-    this.apply(this.contract.impureCircuits.claimBadge(this.circuitContext, tid, tier, score, nonce));
-  }
 }

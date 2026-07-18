@@ -47,7 +47,6 @@ export ledger tournaments: Map<Uint<32>, Tournament>;
 export ledger played: Set<Field>;              // nullifiers; insert commutes, anonymous
 export ledger sealedScores: Map<Field, Field>; // nullifier -> transientCommit(score, nonce)
 export ledger revealedScores: Map<Field, Uint<16>>;
-export ledger badges: Map<Field, Uint<8>>;     // nullifier -> tier
 
 // ---------- witnesses (implemented in witnesses.ts, always untrusted) ----------
 witness playerSecret(): Bytes<32>;
@@ -85,10 +84,6 @@ export pure circuit nullifierFor(sk: Bytes<32>, tid: Uint<32>): Field {
 
 export pure circuit scoreCommit(score: Uint<16>, nonce: Field): Field {
   return transientCommit<Uint<16>>(score, nonce);
-}
-
-export pure circuit tierThreshold(tier: Uint<8>): Uint<16> {
-  return tier == 1 ? 40 : tier == 2 ? 70 : 85;
 }
 
 // score = 10 * isolated + full-clear bonus of 5 * (4 - cutsUsed):
@@ -487,22 +482,13 @@ export circuit submitRun(tid: Uint<32>): [] {
   sealedScores.insert(disclose(nul), disclose(scoreCommit(score, scoreNonce())));
 }
 
-// ---------- reveal window: the score becomes public, by choice ----------
+// ---------- reveal: the score becomes public, by choice, any time before the deadline ----------
 export circuit revealScore(tid: Uint<32>, score: Uint<16>, nonce: Field): [] {
   const t = tournaments.lookup(disclose(tid));
-  assert(blockTimeGte(t.submitUntil) && blockTimeLt(t.revealUntil), "not in reveal window");
+  assert(blockTimeLt(t.revealUntil), "reveal window closed");
   const nul = nullifierFor(playerSecret(), tid);
   assert(sealedScores.member(disclose(nul)), "no sealed entry");
   assert(sealedScores.lookup(disclose(nul)) == scoreCommit(score, nonce), "commit mismatch");
   revealedScores.insert(disclose(nul), disclose(score));
 }
 
-// ---------- or: prove a tier without ever revealing the score ----------
-export circuit claimBadge(tid: Uint<32>, tier: Uint<8>, score: Uint<16>, nonce: Field): [] {
-  assert(tier >= 1 && tier <= 3, "unknown tier");
-  const nul = nullifierFor(playerSecret(), tid);
-  assert(sealedScores.member(disclose(nul)), "no sealed entry");
-  assert(sealedScores.lookup(disclose(nul)) == scoreCommit(score, nonce), "commit mismatch");
-  assert(score >= tierThreshold(tier), "score below tier");
-  badges.insert(disclose(nul), disclose(tier));
-}

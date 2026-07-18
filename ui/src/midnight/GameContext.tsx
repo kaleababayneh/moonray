@@ -69,7 +69,6 @@ export interface GameContextValue {
   seal: SealProgress;
   submitRun(tid: bigint, state: PlayState, seed: bigint): Promise<void>;
   revealScore(tid: bigint): Promise<{ score: number }>;
-  claimBadge(tid: bigint, tier: 1 | 2 | 3): Promise<void>;
   dismissSeal(): void;
   myNullifier(tid: bigint): bigint;
   myRuns(): Record<string, { score: number; nonce: string; sealedAt?: number }>;
@@ -283,12 +282,6 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     return { score: res.score };
   }, []);
 
-  const claimBadge = useCallback(async (tid: bigint, tier: 1 | 2 | 3) => {
-    const game = gameRef.current;
-    if (!game) throw new Error('connect a wallet first');
-    await game.claimBadge(tid, tier);
-  }, []);
-
   const myNullifier = useCallback(
     (tid: bigint) => pureCircuits.nullifierFor(secretKey, tid),
     [secretKey],
@@ -320,7 +313,6 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     seal,
     submitRun,
     revealScore,
-    claimBadge,
     dismissSeal: () => setSeal({ stage: 'idle' }),
     myNullifier,
     myRuns,

@@ -117,7 +117,7 @@ describe('slicer contract (simulator)', () => {
     expect(sim.getLedger().tournaments.member(9n)).toBe(true);
   });
 
-  it('happy path: submit -> sealed; reveal in window; badge claim', () => {
+  it('happy path: submit -> sealed -> reveal', () => {
     const nonce = 999_999n;
     const run = SUITE.goodRun;
     const score = assignObjects(run).score;
@@ -135,13 +135,9 @@ describe('slicer contract (simulator)', () => {
     expect(l.sealedScores.lookup(nul)).toBe(pureCircuits.scoreCommit(BigInt(score), nonce));
     expect(l.revealedScores.isEmpty()).toBe(true);
 
-    sim.setBlockTime(1_500n);
+    // reveal works immediately — no waiting for the field to close
     sim.revealScore(TID, BigInt(score), nonce);
     expect(sim.getLedger().revealedScores.lookup(nul)).toBe(BigInt(score));
-
-    // Bronze (>= 40) is guaranteed by the suite seed
-    sim.claimBadge(TID, 1n, BigInt(score), nonce);
-    expect(sim.getLedger().badges.lookup(nul)).toBe(1n);
   });
 
   it('two players: different nullifiers both land; replay rejected', () => {
@@ -172,7 +168,8 @@ describe('slicer contract (simulator)', () => {
     sim.addUser('alice');
     sim.as('alice').stageRun(bundle);
     sim.submitRun(TID);
-    expect(() => sim.revealScore(TID, 0n, 1n)).toThrow(/not in reveal window/);
+    // revealing while the field is still open is allowed
+    sim.revealScore(TID, bundle.expectedScore ? BigInt(bundle.expectedScore) : 0n, 1n);
 
     sim.addUser('bob');
     sim.setBlockTime(1_200n);
@@ -180,7 +177,7 @@ describe('slicer contract (simulator)', () => {
     expect(() => sim.submitRun(TID)).toThrow(/submissions closed/);
 
     sim.setBlockTime(2_500n);
-    expect(() => sim.as('alice').revealScore(TID, 0n, 1n)).toThrow(/not in reveal window/);
+    expect(() => sim.as('alice').revealScore(TID, 0n, 1n)).toThrow(/reveal window closed/);
   });
 
   it('wrong nonce / wrong score / over-tier claims rejected', () => {
@@ -194,14 +191,8 @@ describe('slicer contract (simulator)', () => {
 
     expect(() => sim.revealScore(TID, score, 778n)).toThrow(/commit mismatch/);
     expect(() => sim.revealScore(TID, score + 10n, nonce)).toThrow(/commit mismatch/);
-    expect(() => sim.claimBadge(TID, 3n, 200n, nonce)).toThrow(/commit mismatch/);
-    if (score < 85n) {
-      expect(() => sim.claimBadge(TID, 3n, score, nonce)).toThrow(/score below tier/);
-    }
-    expect(() => sim.claimBadge(TID, 0n, score, nonce)).toThrow(/unknown tier/);
     sim.addUser('bob');
     expect(() => sim.as('bob').revealScore(TID, 0n, 5n)).toThrow(/no sealed entry/);
-    expect(() => sim.as('bob').claimBadge(TID, 1n, 40n, 5n)).toThrow(/no sealed entry/);
   });
 
   describe('cheat suite — every tampered witness must throw', () => {

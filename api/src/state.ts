@@ -17,11 +17,6 @@ export interface RevealedEntry {
   score: number;
 }
 
-export interface BadgeEntry {
-  nullifier: bigint;
-  tier: number;
-}
-
 export interface TournamentView {
   tid: bigint;
   seed: bigint;
@@ -34,7 +29,6 @@ export interface TournamentView {
 
 export interface LedgerView {
   tournaments: TournamentView[];
-  badges: BadgeEntry[];
   sealedCommits: Map<bigint, bigint>; // nullifier -> commitment
   playedNullifiers: Set<bigint>;
   raw: Ledger;
@@ -54,9 +48,6 @@ export const decodeLedger = (l: Ledger, nowSec = Math.floor(Date.now() / 1000)):
   for (const [nul, score] of l.revealedScores) revealed.push({ nullifier: nul, score: Number(score) });
   revealed.sort((a, b) => b.score - a.score);
 
-  const badges: BadgeEntry[] = [];
-  for (const [nul, tier] of l.badges) badges.push({ nullifier: nul, tier: Number(tier) });
-
   const tournaments: TournamentView[] = [];
   for (const [tid, t] of l.tournaments) {
     tournaments.push({
@@ -73,7 +64,7 @@ export const decodeLedger = (l: Ledger, nowSec = Math.floor(Date.now() / 1000)):
   }
   tournaments.sort((a, b) => Number(b.tid - a.tid));
 
-  return { tournaments, badges, sealedCommits, playedNullifiers, raw: l };
+  return { tournaments, sealedCommits, playedNullifiers, raw: l };
 };
 
 /** Live ledger view from the indexer (auto-retrying websocket observable). */

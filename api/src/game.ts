@@ -212,20 +212,6 @@ export class MoonraySlicer {
     return { ...txInfo(txData), score: run.score };
   }
 
-  /** Claim a badge tier without revealing the score. */
-  async claimBadge(tid: bigint, tier: 1 | 2 | 3): Promise<TxInfo> {
-    const ps = await this.privateState();
-    const run = ps.runs[tid.toString()];
-    if (!run) throw new Error(`no local reveal material for tournament ${tid}`);
-    const txData = await this.deployed.callTx.claimBadge(
-      tid,
-      BigInt(tier),
-      BigInt(run.score),
-      BigInt(run.nonce),
-    );
-    return txInfo(txData);
-  }
-
   /** Local reveal material (exportable backup). */
   async myRuns(): Promise<SlicerPrivateState['runs']> {
     return (await this.privateState()).runs;

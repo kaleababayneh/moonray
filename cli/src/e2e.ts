@@ -187,17 +187,6 @@ const main = async () => {
     assert(ranking[0].nullifier === aliceNul, 'alice recognises her own entry by nullifier');
   }
 
-  console.log('== badge ==');
-  await timed('alice claimBadge Bronze', () => alice.claimBadge(tid, 1));
-  {
-    const view = await fetchLedger(adminProviders, game.address);
-    const aliceNul = await alice.myNullifier(tid);
-    assert(
-      view?.badges.some((b) => b.nullifier === aliceNul && b.tier === 1) ?? false,
-      'Bronze badge on-chain',
-    );
-  }
-
   console.log('\nE2E PASSED ✅');
   process.exit(0);
 };
