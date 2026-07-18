@@ -31,6 +31,8 @@
     "dev": "npm run dev --workspace ui",
     "deploy:local": "npm run deploy:local --workspace cli",
     "e2e:local": "npm run e2e:local --workspace cli",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "start": "npm run start --workspace @moonray/ui",
+    "build:start": "npm run build --workspace @moonray/ui && npm run start --workspace @moonray/ui"
   }
 }

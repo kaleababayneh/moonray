@@ -10,7 +10,9 @@
     "dev": "vite --port 5173",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "http-server -c-1 --port 8081 --proxy http://localhost:8081? ./dist",
+    "build:start": "npm run build && npm run start"
   },
   "dependencies": {
     "@moonray/api": "*",
@@ -40,6 +42,7 @@
     "typescript": "~5.9.3",
     "vite": "^7.3.1",
     "vite-plugin-node-polyfills": "^0.25.0",
-    "vite-plugin-wasm": "^3.5.0"
+    "vite-plugin-wasm": "^3.5.0",
+    "http-server": "^14.1.1"
   }
 }

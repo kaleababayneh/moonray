@@ -134,7 +134,12 @@ export const writeDeployment = (network: NetworkName, address: string): void => 
   const uiFile = path.resolve(currentDir, '..', '..', 'ui', 'public', 'deployment.json');
   fs.mkdirSync(path.dirname(uiFile), { recursive: true });
   fs.writeFileSync(uiFile, JSON.stringify(payload, null, 2));
-  console.log(`  deployment written: ${cliFile} (+ ui/public/deployment.json)`);
+  // keep an already-built dist current too (build+start architecture)
+  const distFile = path.resolve(currentDir, '..', '..', 'ui', 'dist', 'deployment.json');
+  if (fs.existsSync(path.dirname(distFile))) {
+    fs.writeFileSync(distFile, JSON.stringify(payload, null, 2));
+  }
+  console.log(`  deployment written: ${cliFile} (+ ui/public + ui/dist)`);
 };
 
 export const readDeployment = (network: NetworkName): { address: string } => {
