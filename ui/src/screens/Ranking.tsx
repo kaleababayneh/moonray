@@ -197,8 +197,8 @@ export function Ranking({ onBack, nowSec }: { onBack: () => void; nowSec: number
             )}
           </div>
           <p className="archive-note">
-            YOUR NICKNAME AND NAMES ARE LABELS ON THIS DEVICE. ON-CHAIN, EVERY ENTRY IS A
-            NULLIFIER — YOU RECOGNISE YOURS BECAUSE ONLY YOUR KEY DERIVES IT.
+            {/* YOUR NICKNAME AND NAMES ARE LABELS ON THIS DEVICE. ON-CHAIN, EVERY ENTRY IS A
+            NULLIFIER — YOU RECOGNISE YOURS BECAUSE ONLY YOUR KEY DERIVES IT. */}
           </p>
         </article>
       </div>
