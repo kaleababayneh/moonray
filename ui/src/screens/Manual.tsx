@@ -4,77 +4,10 @@
  * (secret-key + nonce backup). Open columns divided by hairlines, no cards.
  */
 
-import { useState } from 'react'
 import { Btn, Icon } from '../components/Hud'
 import { MoonrayMark } from '../components/MoonrayMark'
 import { MAX_CUTS } from '@moonray/engine'
-import { LS_RUNS, LS_SECRET_KEY } from '../config'
 import { useGame } from '../midnight/GameContext'
-
-function Vault() {
-  const [blob, setBlob] = useState('')
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
-
-  const doExport = () => {
-    const payload = {
-      v: 1,
-      secretKey: localStorage.getItem(LS_SECRET_KEY),
-      runs: JSON.parse(localStorage.getItem(LS_RUNS) ?? '{}'),
-      exportedAt: new Date().toISOString(),
-    }
-    const text = JSON.stringify(payload)
-    setBlob(text)
-    navigator.clipboard?.writeText(text).catch(() => undefined)
-    setMsg({ ok: true, text: 'VAULT COPIED TO CLIPBOARD — STORE IT SOMEWHERE SAFE.' })
-  }
-
-  const doImport = () => {
-    try {
-      const parsed = JSON.parse(blob)
-      if (!parsed.secretKey || typeof parsed.secretKey !== 'string' || parsed.secretKey.length !== 64) {
-        throw new Error('vault is missing a valid secret key')
-      }
-      const existing = localStorage.getItem(LS_SECRET_KEY)
-      if (existing && existing !== parsed.secretKey) {
-        if (
-          !window.confirm(
-            'This vault holds a DIFFERENT identity than the one on this device. Importing replaces ' +
-              'your current secret key — any un-backed-up proven runs become unrevealable. Continue?',
-          )
-        ) {
-          return
-        }
-      }
-      localStorage.setItem(LS_SECRET_KEY, parsed.secretKey)
-      localStorage.setItem(LS_RUNS, JSON.stringify(parsed.runs ?? {}))
-      setMsg({ ok: true, text: 'VAULT IMPORTED — RELOAD TO USE THE RESTORED IDENTITY.' })
-    } catch (err) {
-      setMsg({ ok: false, text: `IMPORT FAILED: ${err instanceof Error ? err.message : String(err)}` })
-    }
-  }
-
-  return (
-    <>
-      <textarea
-        className="vault-area"
-        placeholder="Exported vault appears here — or paste one to import."
-        value={blob}
-        onChange={(e) => setBlob(e.target.value)}
-        spellCheck={false}
-      />
-      <div className="manual-actions">
-        <Btn onClick={doExport}>
-          <Icon name="share" />
-          <span>Export vault</span>
-        </Btn>
-        <Btn onClick={doImport}>
-          <span>Import</span>
-        </Btn>
-      </div>
-      {msg && <p className={`vault-msg ${msg.ok ? '' : 'is-error'}`}>{msg.text}</p>}
-    </>
-  )
-}
 
 export function Manual({ onBack }: { onBack: () => void }) {
   const g = useGame()
@@ -234,16 +167,6 @@ export function Manual({ onBack }: { onBack: () => void }) {
           </div>
         </article>
 
-        <article className="sheet rise" style={{ '--d': '560ms' } as React.CSSProperties}>
-          <span className="hud-label">THE VAULT</span>
-          <h2>Back up your reveals</h2>
-          <p>
-            Your secret key and per-operation reveal nonces live only in this browser. Lose them
-            and proven scores can never be revealed.
-          </p>
-          <Vault />
-        </article>
-
         <article className="sheet rise" style={{ '--d': '600ms' } as React.CSSProperties}>
           <span className="hud-label">STATION</span>
           <h2>Network</h2>
@@ -260,21 +183,7 @@ export function Manual({ onBack }: { onBack: () => void }) {
               <b>wallet</b>
               <span>{g.connected ? `linked via ${g.walletName}` : 'not linked'}</span>
             </div>
-            <div>
-              <b>prover</b>
-              <span>{g.useLocalProver ? 'local proof server' : 'wallet-delegated (ProofStation)'}</span>
-            </div>
           </div>
-          <div className="manual-actions">
-            <Btn onClick={() => g.setUseLocalProver(!g.useLocalProver)}>
-              <span>{g.useLocalProver ? 'Use wallet prover' : 'Use local prover'}</span>
-            </Btn>
-          </div>
-          <p style={{ marginTop: 10 }}>
-            The run proof needs a 68 MB proving key — more than the wallet&apos;s messaging channel
-            accepts — so proving defaults to the local proof server on :6300. The wallet still
-            balances, pays and submits.
-          </p>
         </article>
       </div>
     </section>
