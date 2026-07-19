@@ -1,4 +1,6 @@
-# Moonray: Slice
+# Moonray: Slicer
+
+BUILT FOR MLH X MIDNIGHT HACKATHON
 
 Use 1AM wallet on preprod to test!
 
