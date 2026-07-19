@@ -1,4 +1,6 @@
-# Moonray: Slicer
+# Moonray: Slice
+
+Use 1AM wallet on preprod to test!
 
 **A proof score arcade game on [Midnight](https://midnight.network).** Everyone plays the same
 seed-derived field each day: TWO irregular survey plates holding 6–14 glowing *moonlets*,
