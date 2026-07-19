@@ -183,7 +183,7 @@ export function TitleScreen({
         <b>{fmtClock(timerSecs)}</b>
       </div>
       <p className="title-tag rise" style={{ '--d': '200ms' } as React.CSSProperties}>
-        Slice the plates of moonlight. Set every moonlet free — and prove your score with
+        Slice the plates of moonlight. Set every moonlet free and prove your score with
         zero knowledge on Midnight.
       </p>
 
