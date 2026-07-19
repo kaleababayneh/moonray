@@ -34,6 +34,6 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "start": "npm run start --workspace @moonray/ui",
     "build:start": "npm run build --workspace @moonray/ui && npm run start --workspace @moonray/ui",
-    "deploy:vercel": "npm run build --workspace @moonray/ui && cd ui/dist && npx -y vercel@latest link --yes --project moonray && npx -y vercel@latest deploy --prod --yes"
+    "deploy:vercel": "npm run build --workspace @moonray/ui && rm -rf /tmp/moonray-vercel-stage && cp -R ui/dist /tmp/moonray-vercel-stage && cd /tmp/moonray-vercel-stage && npx -y vercel@latest link --yes --project moonray-slicer && npx -y vercel@latest deploy --prod --yes"
   }
 }
