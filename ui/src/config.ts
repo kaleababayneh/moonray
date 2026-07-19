@@ -32,9 +32,17 @@ export const UI_NETWORKS: Record<UiNetwork, UiNetworkConfig> = {
 /** Contract address override (otherwise /deployment.json is fetched). */
 export const CONTRACT_ADDRESS_OVERRIDE = env.VITE_CONTRACT_ADDRESS ?? '';
 
-/** Leaderboard name registry (nickname + wallet published on register). */
+/**
+ * Leaderboard name registry (nickname + wallet published on register).
+ * On the deployed site it's the same-origin /api/names function (Vercel Blob);
+ * localhost also uses the cloud registry so every player shares one board.
+ * Override with VITE_NAMES_URL (e.g. the :8082 sidecar for offline dev).
+ */
 export const NAMES_URL =
-  env.VITE_NAMES_URL ?? `${window.location.protocol}//${window.location.hostname}:8082/`;
+  env.VITE_NAMES_URL ??
+  (['localhost', '127.0.0.1'].includes(window.location.hostname)
+    ? 'https://moonray-slicer.vercel.app/api/names'
+    : '/api/names');
 
 /** Run records (score+nonce) are per contract — a redeploy must not offer stale reveals. */
 export const runsKeyFor = (contractAddress: string | null | undefined): string =>
