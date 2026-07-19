@@ -1,15 +1,10 @@
 # Moonray: Slicer
 
-**A sealed-score arcade game on [Midnight](https://midnight.network).** Everyone plays the same
+**A proof score arcade game on [Midnight](https://midnight.network).** Everyone plays the same
 seed-derived field each day: TWO irregular survey plates holding 6–14 glowing *moonlets*,
 sliced by up to 3 shared straight cuts. A piece left holding exactly one moonlet dissolves and
 *collects* it. Your cuts and your score stay private — a zero-knowledge proof, verified by
 network consensus, shows they're valid.
-
-A ZK-native rebuild of [xray.games](https://github.com/fredericrezeau/xray-games)' Chain Slicer
-(Stellar + Groth16 + trusted attestor) as a single Compact contract: level generation moved
-*into* the circuit, the attestor eliminated, and the whole thing wrapped in anonymous
-sealed-score daily tournaments.
 
 ## Why this needs Midnight, in one line
 
@@ -127,11 +122,3 @@ VITE_MOONRAY_NETWORK=preprod npm run build   # then host ui/dist statically (key
 | `submitRun` — proof + balance + submit | see docs/log.md (roughly 2x the single-plate 25–31 s) |
 | `revealScore` / `claimBadge` / `createTournament` | 17–21 s |
 | engine + contract test suites (32 tests incl. cheat suite) | < 2 s |
-
-## Development pattern
-
-Mirrors [lumera-vault](https://github.com/kaleababayneh/lumera-vault) (midnight-js 4.1.1 pinned
-via root `overrides`, connector-v4 scanning, verbatim-hex tx submission, vite WASM config) with
-game idioms from [mn-wordle](https://github.com/kaleababayneh/mn-wordle) (staged witnesses,
-multi-user simulator tests, domain-separated commitments). Build details and the full
-soundness-delta log: [docs/log.md](docs/log.md).
