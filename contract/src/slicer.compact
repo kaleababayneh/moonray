@@ -1,27 +1,7 @@
-// Moonray Slicer — sealed-score daily tournaments on Midnight.
-//
+// Moonray Slicer daily tournaments on Midnight.
 // TWO irregular boards, one game: a lopsided octagon and a lopsided heptagon,
-// both seed-jittered, share the same 3 full-line cuts. Each board holds 4-7
-// moonlets (8-14 total). Pieces across both boards number at most
-// 8 + 3 cut-crossings = 11, so a heavy day (14 moonlets) can never be fully
-// cleared — every point is earned by threading cuts through the crowd. Light
-// days (8-11 moonlets) admit rare full clears, worth a +10 bonus.
-//
-// Constants are mirrored in engine/src/constants.ts — keep them in lockstep:
-//   GRID 4096 (coords Uint<12>) · BOARD_A 8 verts (lopsided octagon, radii
-//   754-1103 @ (1090,2880)) · BOARD_B 7 verts (lopsided heptagon, radii
-//   737-1086 @ (2950,1330)) · vertex/object jitter [0,128) via j7
-//   MAX_CUTS 3 · MAX_PIECES 11 · MAX_PIECE_VERTS 11 · MAX_OBJECTS 14
-//   TOLC_PX2 4      — colinearity: dist(vertex, source line) <= 2px, normalized
-//   TOLIN_PX2 2025  — containment: object >= 45px inside every piece edge line
-//   AREA_TOL 32768  — tiling slack on 2*area sums (min object spacing 362px
-//                     keeps the cheapest double-claim exploit >= ~65k)
-//   MIN_CUT_AXIS 512 · HI_MAX 114 (unique limb split, both entropy streams)
-//
-// Template safety margins (verified by search, engine tests re-verify):
-//   convexity sagitta >= 205 > 2*91 worst-case jitter perturbation;
-//   object cells >= 137px inside every worst-case board edge; boards
-//   separated by >= 738px at any jitter.
+// both seed-jittered, share the same 3 full-line cuts.
+
 pragma language_version 0.23;
 
 import CompactStandardLibrary;
